@@ -223,6 +223,12 @@ export default {
     }
     
     async function validateExpression() {
+      if (!cronExpression.value || cronExpression.value.trim() === '') {
+        validation.value = { valid: false, error: 'CRON expression is required' }
+        nextRuns.value = []
+        return
+      }
+      
       try {
         const response = await api.post('/api/execution/validate-cron', {
           expression: cronExpression.value
@@ -242,8 +248,31 @@ export default {
     async function save() {
       if (!isValid.value) return
       
+      if (!cronExpression.value || cronExpression.value.trim() === '') {
+        return
+      }
+      
+      console.log('CronBuilder save called with props.scriptId:', props.scriptId, 'type:', typeof props.scriptId)
+      
       try {
-        const response = await api.post('/api/execution/triggers', {
+        const requestPayload = {
+          script_id: props.scriptId,
+          trigger_type: 'cron',
+          config: {
+            expression: cronExpression.value
+          },
+          enabled: true
+        }
+        
+        console.log('About to send request:', requestPayload)
+        
+        const response = await api.post('/api/execution/triggers', requestPayload)
+        
+        emit('save', response.data)
+      } catch (error) {
+        console.error('Error saving trigger:', error)
+        console.error('Error details:', error.response?.data)
+        console.error('Request payload was:', {
           script_id: props.scriptId,
           trigger_type: 'cron',
           config: {
@@ -251,15 +280,15 @@ export default {
           },
           enabled: true
         })
-        
-        emit('save', response.data)
-      } catch (error) {
-        console.error('Error saving trigger:', error)
       }
     }
     
     // Initialize
     parseCronExpression()
+    
+    // Ensure expression is built from cron object after parsing
+    cronExpression.value = `${cron.value.minute} ${cron.value.hour} ${cron.value.day} ${cron.value.month} ${cron.value.weekday}`
+    
     validateExpression()
     
     return {

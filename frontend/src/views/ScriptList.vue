@@ -132,18 +132,74 @@
     <div v-if="showCreateDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-[400px] max-w-full mx-4">
         <h2 class="text-xl font-bold mb-4">Create New Script</h2>
-        <form @submit.prevent="createScript">
+        
+        <!-- Loading State -->
+        <div v-if="isCreating" class="text-center py-8">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <h3 class="text-lg font-semibold mb-2">Creating Script...</h3>
+          <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <div class="flex items-center justify-center space-x-2">
+              <div class="w-2 h-2 bg-green-500 rounded-full" v-if="creationStep >= 1"></div>
+              <div class="w-2 h-2 bg-gray-300 rounded-full animate-pulse" v-else></div>
+              <span>Validating script name...</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <div class="w-2 h-2 bg-green-500 rounded-full" v-if="creationStep >= 2"></div>
+              <div class="w-2 h-2 bg-gray-300 rounded-full animate-pulse" v-else></div>
+              <span>Creating database record...</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <div class="w-2 h-2 bg-green-500 rounded-full" v-if="creationStep >= 3"></div>
+              <div class="w-2 h-2 bg-gray-300 rounded-full animate-pulse" v-else></div>
+              <span>Setting up virtual environment...</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <div class="w-2 h-2 bg-green-500 rounded-full" v-if="creationStep >= 4"></div>
+              <div class="w-2 h-2 bg-gray-300 rounded-full animate-pulse" v-else></div>
+              <span>Finalizing setup...</span>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 mt-4">This may take a few seconds...</p>
+        </div>
+
+        <!-- Creation Form -->
+        <form v-else @submit.prevent="createScript">
           <div class="mb-4">
             <label class="label">Script Name *</label>
-            <input v-model="newScript.name" type="text" class="input" required placeholder="Enter script name">
+            <input 
+              v-model="newScript.name" 
+              type="text" 
+              class="input" 
+              required 
+              placeholder="Enter script name"
+              :disabled="isCreating"
+            >
+          </div>
+          
+          <!-- Error Message -->
+          <div v-if="createError" class="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-400 dark:border-red-600 rounded text-red-700 dark:text-red-400 text-sm">
+            {{ createError }}
           </div>
           
           <div class="flex justify-end space-x-2">
-            <button type="button" @click="showCreateDialog = false" class="btn btn-secondary">
+            <button 
+              type="button" 
+              @click="cancelCreate" 
+              class="btn btn-secondary"
+              :disabled="isCreating"
+            >
               Cancel
             </button>
-            <button type="submit" class="btn btn-primary">
-              Create Script
+            <button 
+              type="submit" 
+              class="btn btn-primary"
+              :disabled="isCreating || !newScript.name.trim()"
+            >
+              <span v-if="isCreating" class="flex items-center">
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Creating...
+              </span>
+              <span v-else>Create Script</span>
             </button>
           </div>
         </form>
@@ -164,6 +220,9 @@ export default {
     const scriptStore = useScriptStore()
     
     const showCreateDialog = ref(false)
+    const isCreating = ref(false)
+    const creationStep = ref(0)
+    const createError = ref('')
     const newScript = ref({
       name: '',
       description: '',
@@ -220,25 +279,62 @@ export default {
     }
     
     const createScript = async () => {
+      if (isCreating.value) return // Prevent duplicate submissions
+      
+      isCreating.value = true
+      createError.value = ''
+      creationStep.value = 0
+      
       try {
+        // Step 1: Validating script name
+        creationStep.value = 1
+        await new Promise(resolve => setTimeout(resolve, 300)) // Brief pause for UX
+        
+        // Step 2: Creating database record  
+        creationStep.value = 2
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        // Step 3: Setting up virtual environment (this is the actual API call)
+        creationStep.value = 3
         const script = await scriptStore.createScript(newScript.value)
+        
+        // Step 4: Finalizing setup
+        creationStep.value = 4
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        // Success - reset form and navigate
         showCreateDialog.value = false
-        newScript.value = {
-          name: '',
-          description: '',
-          folder_id: null,
-          content: 'print("Hello, World!")',
-          python_version: '3.12',
-          requirements: '',
-          email_notifications: false,
-          email_recipients: '',
-          environment_variables: '{}',
-          auto_save: true
-        }
+        resetForm()
         router.push({ name: 'ScriptEditor', params: { safeName: script.safe_name } })
+        
       } catch (error) {
-        alert(`Error creating script: ${error.message}`)
+        createError.value = error.message || 'Failed to create script'
+      } finally {
+        isCreating.value = false
+        creationStep.value = 0
       }
+    }
+    
+    const resetForm = () => {
+      newScript.value = {
+        name: '',
+        description: '',
+        folder_id: null,
+        content: 'print("Hello, World!")',
+        python_version: '3.12',
+        requirements: '',
+        email_notifications: false,
+        email_recipients: '',
+        environment_variables: '{}',
+        auto_save: true
+      }
+      createError.value = ''
+    }
+    
+    const cancelCreate = () => {
+      if (isCreating.value) return // Don't allow cancel during creation
+      showCreateDialog.value = false
+      resetForm()
     }
     
     onMounted(() => {
@@ -255,12 +351,16 @@ export default {
       getScriptsByFolder,
       showCreateDialog,
       newScript,
+      isCreating,
+      creationStep,
+      createError,
       getStatusClass,
       formatDate,
       editScript,
       executeScript,
       deleteScript,
-      createScript
+      createScript,
+      cancelCreate
     }
   }
 }

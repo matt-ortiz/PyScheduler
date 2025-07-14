@@ -210,24 +210,10 @@
 
       <!-- Execution History -->
       <div v-if="isEditing" class="card p-6">
-        <h2 class="text-lg font-semibold mb-4">Execution History</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div class="text-center">
-            <div class="text-2xl font-bold text-primary-600">{{ script.execution_count }}</div>
-            <div class="text-sm text-gray-500">Total Runs</div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-green-600">{{ script.success_count }}</div>
-            <div class="text-sm text-gray-500">Successful</div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-red-600">{{ script.execution_count - script.success_count }}</div>
-            <div class="text-sm text-gray-500">Failed</div>
-          </div>
+        <div class="mb-4 text-sm text-gray-600">
+          Debug: isEditing={{ isEditing }}, safeName={{ route.params.safeName }}
         </div>
-        <div v-if="script.last_executed_at" class="text-sm text-gray-500">
-          Last executed: {{ formatDate(script.last_executed_at) }}
-        </div>
+        <ExecutionLogs :script-safe-name="route.params.safeName" />
       </div>
     </div>
 
@@ -280,13 +266,15 @@ import { useRouter, useRoute } from 'vue-router'
 import { useScriptStore } from '../stores/scripts'
 import TriggerManager from '../components/TriggerManager.vue'
 import CodeEditor from '../components/CodeEditor.vue'
+import ExecutionLogs from '../components/ExecutionLogs.vue'
 import { api } from '../composables/api'
 
 export default {
   name: 'ScriptEditor',
   components: {
     TriggerManager,
-    CodeEditor
+    CodeEditor,
+    ExecutionLogs
   },
   setup() {
     const router = useRouter()

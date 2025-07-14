@@ -6,7 +6,7 @@ import re
 
 from ..database import get_db
 from ..auth import get_current_user
-from ..models import TriggerCreate, TriggerResponse
+from ..models import TriggerCreate, TriggerResponse, CronValidationRequest
 
 router = APIRouter()
 
@@ -322,11 +322,11 @@ async def get_execution_queue(current_user: dict = Depends(get_current_user)):
 
 @router.post("/validate-cron")
 async def validate_cron(
-    expression: str,
+    request: CronValidationRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """Validate CRON expression and return next run times"""
-    if not validate_cron_expression(expression):
+    if not validate_cron_expression(request.expression):
         raise HTTPException(400, "Invalid CRON expression")
     
     # Calculate next few run times (simplified)
@@ -344,7 +344,7 @@ async def validate_cron(
     return {
         "valid": True,
         "next_runs": next_runs,
-        "description": f"CRON expression: {expression}"
+        "description": f"CRON expression: {request.expression}"
     }
 
 @router.get("/triggers/upcoming")

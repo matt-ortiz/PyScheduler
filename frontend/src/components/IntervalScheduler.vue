@@ -22,7 +22,7 @@
       <div>
         <label class="block text-sm font-medium mb-1">Value</label>
         <input 
-          v-model.number="interval.value"
+          v-model.number="interval.value.value"
           type="number"
           min="1"
           class="w-full p-2 border rounded dark:bg-gray-800"
@@ -32,7 +32,7 @@
       
       <div>
         <label class="block text-sm font-medium mb-1">Unit</label>
-        <select v-model="interval.unit" class="w-full p-2 border rounded dark:bg-gray-800">
+        <select v-model="interval.value.unit" class="w-full p-2 border rounded dark:bg-gray-800">
           <option value="seconds">Seconds</option>
           <option value="minutes">Minutes</option>
           <option value="hours">Hours</option>
@@ -93,8 +93,8 @@ import { api } from '../composables/api'
 export default {
   name: 'IntervalScheduler',
   props: {
-    scriptId: {
-      type: Number,
+    scriptSafeName: {
+      type: String,
       required: true
     },
     initialSeconds: {
@@ -130,19 +130,19 @@ export default {
     }
     
     const totalSeconds = computed(() => {
-      return interval.value * unitMultipliers[interval.unit]
+      return interval.value.value * unitMultipliers[interval.value.unit]
     })
     
     const intervalDescription = computed(() => {
-      if (interval.value === 1) {
-        return `Run every ${interval.unit.slice(0, -1)}`
+      if (interval.value.value === 1) {
+        return `Run every ${interval.value.unit.slice(0, -1)}`
       } else {
-        return `Run every ${interval.value} ${interval.unit}`
+        return `Run every ${interval.value.value} ${interval.value.unit}`
       }
     })
     
     const isValid = computed(() => {
-      return interval.value > 0 && totalSeconds.value > 0
+      return interval.value.value > 0 && totalSeconds.value > 0
     })
     
     const nextRuns = ref([])
@@ -156,26 +156,46 @@ export default {
     }
     
     function calculateNextRuns() {
-      const now = new Date()
-      const runs = []
-      
-      for (let i = 1; i <= 5; i++) {
-        const nextTime = new Date(now.getTime() + (totalSeconds.value * 1000 * i))
-        runs.push({
-          time: nextTime.toISOString(),
-          description: nextTime.toLocaleString()
-        })
+      try {
+        const now = new Date()
+        const runs = []
+        
+        // Ensure totalSeconds is valid
+        if (!totalSeconds.value || totalSeconds.value <= 0) {
+          nextRuns.value = []
+          return
+        }
+        
+        for (let i = 1; i <= 5; i++) {
+          const nextTime = new Date(now.getTime() + (totalSeconds.value * 1000 * i))
+          runs.push({
+            time: nextTime.toISOString(),
+            description: nextTime.toLocaleString()
+          })
+        }
+        
+        nextRuns.value = runs
+      } catch (error) {
+        console.error('Error calculating next runs:', error)
+        nextRuns.value = []
       }
-      
-      nextRuns.value = runs
     }
     
     async function save() {
       if (!isValid.value) return
       
       try {
+        // First get the script ID from the safe name
+        const scriptsResponse = await api.get('/api/scripts')
+        const script = scriptsResponse.data.find(s => s.safe_name === props.scriptSafeName)
+        
+        if (!script) {
+          console.error('Script not found with safe_name:', props.scriptSafeName)
+          return
+        }
+        
         const response = await api.post('/api/execution/triggers', {
-          script_id: props.scriptId,
+          script_id: script.id,
           trigger_type: 'interval',
           config: {
             seconds: totalSeconds.value
@@ -186,23 +206,34 @@ export default {
         emit('save', response.data)
       } catch (error) {
         console.error('Error saving trigger:', error)
+        console.error('Error details:', error.response?.data)
       }
     }
     
     // Initialize from props
     function initializeFromSeconds(seconds) {
-      if (seconds % 86400 === 0) {
-        interval.value.value = seconds / 86400
-        interval.value.unit = 'days'
-      } else if (seconds % 3600 === 0) {
-        interval.value.value = seconds / 3600
+      try {
+        // Ensure we have a valid number
+        const validSeconds = Math.max(1, parseInt(seconds) || 3600)
+        
+        if (validSeconds % 86400 === 0) {
+          interval.value.value = validSeconds / 86400
+          interval.value.unit = 'days'
+        } else if (validSeconds % 3600 === 0) {
+          interval.value.value = validSeconds / 3600
+          interval.value.unit = 'hours'
+        } else if (validSeconds % 60 === 0) {
+          interval.value.value = validSeconds / 60
+          interval.value.unit = 'minutes'
+        } else {
+          interval.value.value = validSeconds
+          interval.value.unit = 'seconds'
+        }
+      } catch (error) {
+        console.error('Error initializing from seconds:', error)
+        // Fallback to default
+        interval.value.value = 1
         interval.value.unit = 'hours'
-      } else if (seconds % 60 === 0) {
-        interval.value.value = seconds / 60
-        interval.value.unit = 'minutes'
-      } else {
-        interval.value.value = seconds
-        interval.value.unit = 'seconds'
       }
     }
     

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import ScriptList from '../views/ScriptList.vue'
 import ScriptEditor from '../views/ScriptEditor.vue'
-import LogViewer from '../views/LogViewer.vue'
+import LogsView from '../views/LogsView.vue'
 import Settings from '../views/Settings.vue'
 import Login from '../views/Login.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -29,7 +29,7 @@ const routes = [
   {
     path: '/logs',
     name: 'LogViewer',
-    component: LogViewer,
+    component: LogsView,
     meta: { requiresAuth: true }
   },
   {

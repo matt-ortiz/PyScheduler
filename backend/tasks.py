@@ -4,6 +4,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from typing import Dict, Any
+from croniter import croniter
 
 from .database import get_db
 from .virtual_env import VirtualEnvironmentManager
@@ -72,7 +73,7 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
         manager = VirtualEnvironmentManager(script["safe_name"], folder_path)
         result = asyncio.run(manager.execute_script(
             script["content"], 
-            script.get("environment_variables", "{}")
+            script["environment_variables"] or "{}"
         ))
         
         # Update execution log
@@ -258,6 +259,7 @@ def cleanup_old_logs():
 @celery_app.task
 def process_scheduled_triggers():
     """Process scheduled triggers (cron and interval)"""
+    print(f"[{datetime.now()}] Processing scheduled triggers...")
     try:
         with get_db() as conn:
             # Get all enabled triggers
@@ -271,7 +273,10 @@ def process_scheduled_triggers():
             triggers = cursor.fetchall()
             processed = 0
             
+            print(f"Found {len(triggers)} enabled triggers")
+            
             for trigger in triggers:
+                print(f"Processing trigger {trigger['id']} - {trigger['trigger_type']} for script {trigger['script_name']}")
                 trigger_config = json.loads(trigger["config"])
                 should_execute = False
                 
@@ -293,10 +298,11 @@ def process_scheduled_triggers():
                         if datetime.now() >= next_run:
                             should_execute = True
                     else:
-                        # If no next run time, calculate it
+                        # If no next run time, execute now and set the next run time
                         should_execute = True
                 
                 if should_execute:
+                    print(f"Executing trigger {trigger['id']} - {trigger['trigger_type']} for script {trigger['script_name']}")
                     # Queue script execution
                     execute_script_task.delay(trigger["script_id"], trigger["id"], "schedule")
                     
@@ -306,9 +312,10 @@ def process_scheduled_triggers():
                         interval_seconds = trigger_config.get("seconds", 3600)
                         next_run_at = (datetime.now() + timedelta(seconds=interval_seconds)).isoformat()
                     elif trigger["trigger_type"] == "cron":
-                        # For now, set next run to one hour from now (simplified)
-                        # In production, use croniter library for proper CRON parsing
-                        next_run_at = (datetime.now() + timedelta(hours=1)).isoformat()
+                        # Calculate next run time using croniter
+                        cron_expression = trigger_config.get("expression", "0 * * * *")
+                        cron = croniter(cron_expression, datetime.now())
+                        next_run_at = cron.get_next(datetime).isoformat()
                     
                     conn.execute("""
                         UPDATE triggers SET 
@@ -318,7 +325,10 @@ def process_scheduled_triggers():
                     """, (next_run_at, trigger["id"]))
                     
                     processed += 1
+                else:
+                    print(f"Trigger {trigger['id']} not ready to execute")
             
+            print(f"Processed {processed} triggers")
             return {"success": True, "processed": processed}
             
     except Exception as e:

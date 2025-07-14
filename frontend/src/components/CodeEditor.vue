@@ -4,17 +4,11 @@
 
 <script>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { EditorView, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, 
-         drawSelection, dropCursor, rectangularSelection, keymap } from '@codemirror/view'
+import { EditorView, lineNumbers, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { defaultHighlightStyle, syntaxHighlighting, indentOnInput, 
-         bracketMatching, foldGutter } from '@codemirror/language'
-import { history, indentWithTab, standardKeymap, historyKeymap } from '@codemirror/commands'
-import { searchKeymap } from '@codemirror/search'
-import { autocompletion, closeBrackets, completionKeymap, 
-         closeBracketsKeymap } from '@codemirror/autocomplete'
+import { indentWithTab } from '@codemirror/commands'
 
 export default {
   name: 'CodeEditor',
@@ -60,119 +54,100 @@ export default {
     const createEditor = async () => {
       if (!editorRef.value) return
       
-      // Build comprehensive extensions manually to avoid conflicts
-      const extensions = [
-        // Core editor features
-        lineNumbers(),
-        highlightActiveLineGutter(),
-        highlightSpecialChars(),
-        history(),
-        foldGutter(),
-        drawSelection(),
-        dropCursor(),
-        indentOnInput(),
-        bracketMatching(),
-        closeBrackets(),
-        autocompletion(),
-        rectangularSelection(),
+      try {
+        // Essential extensions for code editing
+        const extensions = [
+          // Line numbers
+          lineNumbers(),
+          
+          // Tab indentation
+          keymap.of([indentWithTab]),
+          
+          // Update listener for v-model
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              const newValue = update.state.doc.toString()
+              emit('update:modelValue', newValue)
+              emit('change', newValue)
+            }
+          }),
+          
+          // Basic editor styling
+          EditorView.theme({
+            '&': {
+              fontSize: '14px',
+              fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace"
+            },
+            '.cm-editor': {
+              minHeight: props.height === 'auto' ? '200px' : props.height,
+              maxHeight: props.maxHeight,
+              border: '1px solid #d1d5db',
+              borderRadius: '6px'
+            },
+            '.cm-editor.cm-focused': {
+              outline: '2px solid #3b82f6',
+              outlineOffset: '2px',
+              borderColor: '#3b82f6'
+            },
+            '.cm-content': {
+              padding: '12px',
+              minHeight: props.height === 'auto' ? '200px' : props.height
+            },
+            '.cm-gutters': {
+              backgroundColor: 'var(--cm-gutter-bg, #f9fafb)',
+              borderRight: '1px solid var(--cm-border-color, #e5e7eb)',
+              padding: '0 8px 0 0'
+            },
+            '.cm-lineNumbers .cm-gutterElement': {
+              color: 'var(--cm-line-number-color, #6b7280)',
+              fontSize: '13px',
+              minWidth: '3ch',
+              textAlign: 'right'
+            }
+          })
+        ]
         
-        // Syntax highlighting - this is crucial
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        // Add Python language support if specified
+        if (props.language === 'python') {
+          extensions.push(python())
+        }
         
-        // Keymaps
-        keymap.of([
-          indentWithTab,
-          ...closeBracketsKeymap,
-          ...standardKeymap,
-          ...searchKeymap,
-          ...historyKeymap,
-          ...completionKeymap
-        ]),
+        // Add dark theme if enabled
+        if (props.darkTheme) {
+          extensions.push(oneDark)
+        }
         
-        // Update listener
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            const newValue = update.state.doc.toString()
-            emit('update:modelValue', newValue)
-            emit('change', newValue)
-          }
-        }),
-        
-        // Basic styling theme
-        EditorView.theme({
-          '&': {
-            fontSize: '14px',
-            fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace"
-          },
-          '.cm-editor': {
-            minHeight: props.height === 'auto' ? '200px' : props.height,
-            maxHeight: props.maxHeight,
-            border: '1px solid #d1d5db',
-            borderRadius: '6px'
-          },
-          '.cm-editor.cm-focused': {
-            outline: '2px solid #3b82f6',
-            outlineOffset: '2px',
-            borderColor: '#3b82f6'
-          },
-          '.cm-content': {
-            padding: '12px',
-            minHeight: props.height === 'auto' ? '200px' : props.height
-          },
-          '.cm-gutters': {
-            backgroundColor: 'var(--cm-gutter-bg, #f9fafb)',
-            borderRight: '1px solid var(--cm-border-color, #e5e7eb)'
-          },
-          '.cm-lineNumbers .cm-gutterElement': {
-            color: 'var(--cm-line-number-color, #6b7280)'
-          }
+        // Create editor state
+        const startState = EditorState.create({
+          doc: props.modelValue || '',
+          extensions
         })
-      ]
-      
-      // Add language support for Python
-      if (props.language === 'python') {
-        extensions.push(python())
-      }
-      
-      // Add dark theme if enabled
-      if (props.darkTheme) {
-        extensions.push(oneDark)
-        extensions.push(EditorView.theme({
-          '.cm-editor': {
-            '--cm-bg-color': '#1f2937',
-            '--cm-text-color': '#f9fafb',
-            '--cm-gutter-bg': '#374151',
-            '--cm-border-color': '#4b5563',
-            '--cm-line-number-color': '#9ca3af'
-          }
-        }))
-      } else {
-        extensions.push(EditorView.theme({
-          '.cm-editor': {
-            '--cm-bg-color': '#ffffff',
-            '--cm-text-color': '#1f2937',
-            '--cm-gutter-bg': '#f9fafb',
-            '--cm-border-color': '#e5e7eb',
-            '--cm-line-number-color': '#6b7280'
-          }
-        }))
-      }
-      
-      // Configure editor state
-      const startState = EditorState.create({
-        doc: props.modelValue || '',
-        extensions
-      })
-      
-      // Create editor view
-      editorView = new EditorView({
-        state: startState,
-        parent: editorRef.value
-      })
-      
-      // Handle readonly state
-      if (props.readonly) {
-        editorView.contentDOM.setAttribute('contenteditable', 'false')
+        
+        // Create editor view
+        editorView = new EditorView({
+          state: startState,
+          parent: editorRef.value
+        })
+        
+        // Handle readonly state
+        if (props.readonly) {
+          editorView.contentDOM.setAttribute('contenteditable', 'false')
+        }
+      } catch (error) {
+        console.error('Failed to create CodeMirror editor:', error)
+        // Fallback to basic textarea with better styling
+        console.warn('CodeMirror failed, using textarea fallback:', error)
+        const textarea = document.createElement('textarea')
+        textarea.value = props.modelValue || ''
+        textarea.className = 'w-full p-3 border border-gray-300 rounded-lg font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+        textarea.style.minHeight = props.height === 'auto' ? '200px' : props.height
+        textarea.style.maxHeight = props.maxHeight
+        textarea.style.resize = 'vertical'
+        textarea.addEventListener('input', (e) => {
+          emit('update:modelValue', e.target.value)
+          emit('change', e.target.value)
+        })
+        editorRef.value.appendChild(textarea)
       }
     }
     

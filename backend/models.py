@@ -167,3 +167,6 @@ class LoginResponse(BaseModel):
 
 class AutoSaveRequest(BaseModel):
     content: str
+
+class CronValidationRequest(BaseModel):
+    expression: str = Field(..., min_length=1, max_length=100)

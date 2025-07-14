@@ -92,21 +92,47 @@
         
         <!-- Scheduler components -->
         <div class="mb-4">
+          <!-- Debug info -->
+          <div class="p-3 bg-yellow-100 dark:bg-yellow-900 text-sm rounded mb-4">
+            <strong>Debug Info:</strong><br>
+            selectedTriggerType: {{ selectedTriggerType }}<br>
+            scriptId: {{ scriptId }}<br>
+            scriptSafeName: {{ scriptSafeName }}<br>
+            Condition for Interval: {{ selectedTriggerType === 'interval' && scriptId }}
+          </div>
+          
           <CronBuilder 
-            v-if="selectedTriggerType === 'cron'"
+            v-if="selectedTriggerType === 'cron' && scriptId"
             :script-id="scriptId"
             :initial-expression="editingTrigger?.config?.expression || '0 0 * * *'"
             @save="onTriggerSave"
             @cancel="closeModal"
           />
           
+          <div v-if="selectedTriggerType === 'cron' && !scriptId" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+            <p class="text-sm text-gray-500">Loading script information...</p>
+          </div>
+          
           <IntervalScheduler 
-            v-if="selectedTriggerType === 'interval'"
-            :script-id="scriptId"
+            v-if="selectedTriggerType === 'interval' && scriptId"
+            :script-safe-name="scriptSafeName"
             :initial-seconds="editingTrigger?.config?.seconds || 3600"
             @save="onTriggerSave"
             @cancel="closeModal"
           />
+          
+          <div v-if="selectedTriggerType === 'interval' && !scriptId" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+            <p class="text-sm text-gray-500">Loading script information...</p>
+          </div>
+          
+          <!-- Additional debug for interval case -->
+          <div v-if="selectedTriggerType === 'interval'" class="p-3 bg-blue-100 dark:bg-blue-900 text-sm rounded">
+            <strong>Interval Debug:</strong><br>
+            Should show IntervalScheduler: {{ scriptId ? 'YES' : 'NO' }}<br>
+            Should show loading: {{ !scriptId ? 'YES' : 'NO' }}
+          </div>
           
           <div v-if="selectedTriggerType === 'manual'" class="text-center py-8">
             <h4 class="text-lg font-medium mb-2">Manual Trigger</h4>
@@ -114,7 +140,8 @@
             <div class="flex gap-2 justify-center">
               <button 
                 @click="createManualTrigger"
-                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                :disabled="!scriptId"
+                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
               >
                 Create Manual Trigger
               </button>
@@ -133,7 +160,8 @@
             <div class="flex gap-2 justify-center">
               <button 
                 @click="createStartupTrigger"
-                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                :disabled="!scriptId"
+                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
               >
                 Create Startup Trigger
               </button>
@@ -180,6 +208,12 @@ export default {
     // Get script ID from safe name
     const scriptId = computed(() => {
       const script = scriptStore.getScriptBySafeName(props.scriptSafeName)
+      console.log('TriggerManager scriptId computed:', {
+        scriptSafeName: props.scriptSafeName,
+        script: script,
+        scriptId: script ? script.id : null,
+        allScripts: scriptStore.scripts.length
+      })
       return script ? script.id : null
     })
     
@@ -279,7 +313,13 @@ export default {
     }
     
     async function createManualTrigger() {
+      if (!scriptId.value) {
+        console.error('Cannot create manual trigger: script ID not available')
+        return
+      }
+      
       try {
+        console.log('Creating manual trigger for script ID:', scriptId.value)
         await api.post('/api/execution/triggers', {
           script_id: scriptId.value,
           trigger_type: 'manual',
@@ -294,7 +334,13 @@ export default {
     }
     
     async function createStartupTrigger() {
+      if (!scriptId.value) {
+        console.error('Cannot create startup trigger: script ID not available')
+        return
+      }
+      
       try {
+        console.log('Creating startup trigger for script ID:', scriptId.value)
         await api.post('/api/execution/triggers', {
           script_id: scriptId.value,
           trigger_type: 'startup',
@@ -319,7 +365,11 @@ export default {
       selectedTriggerType.value = 'cron'
     }
     
-    onMounted(() => {
+    onMounted(async () => {
+      // Ensure scripts are loaded first
+      console.log('TriggerManager onMounted - fetching scripts first')
+      await scriptStore.fetchScripts()
+      console.log('TriggerManager onMounted - scripts loaded, now loading triggers')
       loadTriggers()
     })
     
@@ -329,6 +379,8 @@ export default {
       editingTrigger,
       selectedTriggerType,
       triggerTypes,
+      scriptId,
+      scriptSafeName: props.scriptSafeName,
       loadTriggers,
       triggerTypeClass,
       getTriggerDescription,
