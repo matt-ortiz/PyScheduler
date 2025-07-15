@@ -2,14 +2,14 @@
 
 A web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/pyscheduler/pyscheduler)](https://hub.docker.com/r/pyscheduler/pyscheduler)
-[![GitHub](https://img.shields.io/github/license/pyscheduler/pyscheduler)](https://github.com/pyscheduler/pyscheduler/blob/main/LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/mattortiz/pyscheduler)](https://hub.docker.com/r/mattortiz/pyscheduler)
+[![GitHub](https://img.shields.io/github/license/matt-ortiz/PyScheduler)](https://github.com/matt-ortiz/PyScheduler/blob/main/LICENSE)
 
 ## 🚀 Quick Start
 
 ```bash
 # Create a docker-compose.yml file
-curl -O https://raw.githubusercontent.com/pyscheduler/pyscheduler/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/matt-ortiz/PyScheduler/main/docker-compose.yml
 
 # Start PyScheduler
 docker-compose up -d
@@ -56,7 +56,7 @@ docker-compose logs pyscheduler | grep "Generated secure admin password"
 ```yaml
 services:
   pyscheduler:
-    image: pyscheduler/pyscheduler:latest
+    image: mattortiz/pyscheduler:latest
     ports:
       - "8000:8000"
     volumes:
@@ -80,7 +80,7 @@ volumes:
 ```yaml
 services:
   pyscheduler:
-    image: pyscheduler/pyscheduler:latest
+    image: mattortiz/pyscheduler:latest
     ports:
       - "8000:8000"
     environment:
@@ -226,8 +226,8 @@ docker-compose logs pyscheduler | grep "Generated secure admin password"
 
 ```bash
 # Clone repository
-git clone https://github.com/pyscheduler/pyscheduler.git
-cd pyscheduler
+git clone https://github.com/matt-ortiz/PyScheduler.git
+cd PyScheduler
 
 # Install dependencies
 pip install -r requirements.txt
