@@ -7,16 +7,46 @@ from typing import Optional
 
 class EmailService:
     def __init__(self):
-        self.smtp_server = os.getenv("SMTP_SERVER", "mail.smtp2go.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "2525"))
-        self.smtp_username = os.getenv("SMTP_USERNAME")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("FROM_EMAIL", "pyscheduler@example.com")
+        # Load email settings from database first, fall back to environment variables
+        self._load_settings()
+    
+    def _load_settings(self):
+        """Load email settings from database or environment variables"""
+        try:
+            from .api.settings import load_settings
+            settings = load_settings()
+            email_settings = settings.get('email_settings', {})
+            
+            # Use database settings if available, otherwise fall back to environment variables
+            self.smtp_server = email_settings.get('smtp_server') or os.getenv("SMTP_SERVER", "mail.smtp2go.com")
+            self.smtp_port = int(email_settings.get('smtp_port') or os.getenv("SMTP_PORT", "2525"))
+            self.smtp_username = email_settings.get('smtp_username') or os.getenv("SMTP_USERNAME")
+            self.smtp_password = email_settings.get('smtp_password') or os.getenv("SMTP_PASSWORD")
+            self.from_email = email_settings.get('from_email') or os.getenv("FROM_EMAIL", "pyscheduler@example.com")
+            
+        except Exception:
+            # Fall back to environment variables if database load fails
+            self.smtp_server = os.getenv("SMTP_SERVER", "mail.smtp2go.com")
+            self.smtp_port = int(os.getenv("SMTP_PORT", "2525"))
+            self.smtp_username = os.getenv("SMTP_USERNAME")
+            self.smtp_password = os.getenv("SMTP_PASSWORD")
+            self.from_email = os.getenv("FROM_EMAIL", "pyscheduler@example.com")
+        
         self.enabled = bool(self.smtp_server and self.smtp_username and self.smtp_password)
     
     def send_script_notification(self, script_name: str, status: str, output: str, recipients: str):
         """Send email notification for script execution"""
+        # Reload settings each time to ensure we have the latest database configuration
+        self._load_settings()
+        
+        print(f"[EMAIL] Attempting to send notification for script: {script_name}")
+        print(f"[EMAIL] Status: {status}")
+        print(f"[EMAIL] Recipients: {recipients}")
+        print(f"[EMAIL] Email enabled: {self.enabled}")
+        print(f"[EMAIL] SMTP settings: {self.smtp_server}:{self.smtp_port}")
+        
         if not self.enabled or not recipients:
+            print(f"[EMAIL] Email service not enabled or no recipients. Enabled: {self.enabled}, Recipients: {recipients}")
             return False
         
         subject = f"PyScheduler: {script_name} - {status.title()}"

@@ -5,6 +5,7 @@ from datetime import datetime
 from ..database import get_db
 from ..auth import get_current_user
 from ..models import ExecutionLogResponse
+from ..timezone_utils import format_datetime_for_api
 
 router = APIRouter()
 
@@ -12,6 +13,9 @@ router = APIRouter()
 async def list_execution_logs(
     script_id: Optional[int] = None,
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
     current_user: dict = Depends(get_current_user)
@@ -34,6 +38,19 @@ async def list_execution_logs(
             query += " AND el.status = ?"
             params.append(status)
         
+        if date_from:
+            query += " AND el.started_at >= ?"
+            params.append(date_from)
+        
+        if date_to:
+            query += " AND el.started_at <= ?"
+            params.append(date_to + " 23:59:59")  # Include full day
+        
+        if search:
+            query += " AND (s.name LIKE ? OR el.stdout LIKE ? OR el.stderr LIKE ?)"
+            search_term = f"%{search}%"
+            params.extend([search_term, search_term, search_term])
+        
         query += " ORDER BY el.started_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
         
@@ -42,6 +59,17 @@ async def list_execution_logs(
         for row in cursor.fetchall():
             log_dict = dict(row)
             log_dict.pop('script_name', None)  # Remove join field
+            
+            # Format datetime fields with proper UTC indicators
+            if log_dict.get('started_at'):
+                log_dict['started_at'] = format_datetime_for_api(
+                    datetime.fromisoformat(log_dict['started_at'])
+                )
+            if log_dict.get('finished_at'):
+                log_dict['finished_at'] = format_datetime_for_api(
+                    datetime.fromisoformat(log_dict['finished_at'])
+                )
+            
             logs.append(ExecutionLogResponse(**log_dict))
         
         return logs
@@ -59,7 +87,19 @@ async def get_execution_log(
         if not log:
             raise HTTPException(404, "Execution log not found")
         
-        return ExecutionLogResponse(**dict(log))
+        log_dict = dict(log)
+        
+        # Format datetime fields with proper UTC indicators
+        if log_dict.get('started_at'):
+            log_dict['started_at'] = format_datetime_for_api(
+                datetime.fromisoformat(log_dict['started_at'])
+            )
+        if log_dict.get('finished_at'):
+            log_dict['finished_at'] = format_datetime_for_api(
+                datetime.fromisoformat(log_dict['finished_at'])
+            )
+        
+        return ExecutionLogResponse(**log_dict)
 
 @router.get("/script/{safe_name}", response_model=List[ExecutionLogResponse])
 async def get_script_execution_logs(
@@ -131,12 +171,14 @@ async def delete_script_execution_logs(
 
 @router.post("/cleanup")
 async def cleanup_old_logs(
-    days: int = 30,
+    cleanup_data: dict,
     current_user: dict = Depends(get_current_user)
 ):
     """Clean up old execution logs"""
     if not current_user.get("is_admin"):
         raise HTTPException(403, "Admin access required")
+    
+    days = cleanup_data.get("days", 30)
     
     with get_db() as conn:
         # Delete logs older than specified days

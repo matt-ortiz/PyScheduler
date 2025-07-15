@@ -27,6 +27,17 @@ def hash_password(password: str) -> str:
     """Hash password using SHA-256"""
     return hashlib.sha256(password.encode()).hexdigest()
 
+def migrate_database(conn):
+    """Run database migrations"""
+    # Migration 1: Add email_trigger_type field to scripts table
+    try:
+        cursor = conn.execute("SELECT email_trigger_type FROM scripts LIMIT 1")
+        cursor.fetchone()  # If this succeeds, the field exists
+    except Exception:
+        # Field doesn't exist, add it
+        conn.execute("ALTER TABLE scripts ADD COLUMN email_trigger_type TEXT DEFAULT 'all'")
+        print("Added email_trigger_type field to scripts table")
+
 def init_database():
     """Initialize database with schema"""
     with get_db() as conn:
@@ -55,6 +66,7 @@ def init_database():
                 -- Email notifications
                 email_notifications BOOLEAN DEFAULT false,
                 email_recipients TEXT DEFAULT '',
+                email_trigger_type TEXT DEFAULT 'all', -- 'all', 'success', 'failure'
                 
                 -- Environment variables and auto-save
                 environment_variables TEXT DEFAULT '{}',
@@ -141,6 +153,9 @@ def init_database():
             CREATE INDEX IF NOT EXISTS idx_scripts_folder_id ON scripts(folder_id);
             CREATE INDEX IF NOT EXISTS idx_triggers_script_id ON triggers(script_id);
         """)
+        
+        # Run migrations
+        migrate_database(conn)
         
         # Create default admin user if none exists
         cursor = conn.execute("SELECT COUNT(*) FROM users")

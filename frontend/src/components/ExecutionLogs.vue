@@ -167,6 +167,7 @@
 <script>
 import { ref, onMounted, watch } from 'vue'
 import { api } from '../composables/api'
+import { useDateTime } from '../composables/datetime'
 
 export default {
   name: 'ExecutionLogs',
@@ -177,6 +178,7 @@ export default {
     }
   },
   setup(props) {
+    const { formatDateTime } = useDateTime()
     const logs = ref([])
     const stats = ref(null)
     const selectedLog = ref(null)
@@ -290,9 +292,7 @@ export default {
       return classes[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
     }
 
-    function formatDateTime(dateString) {
-      return new Date(dateString).toLocaleString()
-    }
+    // Using shared datetime utility function
 
     function formatDuration(ms) {
       if (ms < 1000) return `${ms}ms`

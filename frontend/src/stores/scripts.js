@@ -5,6 +5,7 @@ export const useScriptStore = defineStore('scripts', {
   state: () => ({
     scripts: [],
     folders: [],
+    triggers: [],
     currentScript: null,
     loading: false,
     error: null
@@ -25,6 +26,10 @@ export const useScriptStore = defineStore('scripts', {
     
     getScriptsWithoutFolder: (state) => {
       return state.scripts.filter(script => !script.folder_id)
+    },
+    
+    getTriggersByScript: (state) => (scriptId) => {
+      return state.triggers.filter(trigger => trigger.script_id === scriptId)
     }
   },
   
@@ -49,6 +54,16 @@ export const useScriptStore = defineStore('scripts', {
         this.folders = response.data
       } catch (error) {
         console.error('Error fetching folders:', error)
+      }
+    },
+    
+    async fetchTriggers() {
+      try {
+        const response = await api.get('/api/execution/triggers')
+        this.triggers = response.data
+      } catch (error) {
+        console.error('Error fetching triggers:', error)
+        this.triggers = []
       }
     },
     

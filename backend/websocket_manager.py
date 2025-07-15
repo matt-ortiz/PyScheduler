@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 import json
 import asyncio
 from datetime import datetime
+from .timezone_utils import format_datetime_for_api
 
 class WebSocketManager:
     def __init__(self):
@@ -46,6 +47,6 @@ async def broadcast_event(event_type: str, data: Dict[str, Any]):
     """Broadcast event to all connected clients"""
     await ws_manager.broadcast({
         "type": event_type,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": format_datetime_for_api(datetime.now()),
         "data": data
     })

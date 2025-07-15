@@ -2,7 +2,6 @@
   <div class="interval-scheduler">
     <h3 class="text-lg font-semibold mb-4">Interval Scheduler</h3>
     
-    <!-- Quick presets -->
     <div class="mb-4">
       <h4 class="text-sm font-medium mb-2">Quick Presets</h4>
       <div class="flex flex-wrap gap-2">
@@ -17,12 +16,11 @@
       </div>
     </div>
     
-    <!-- Manual configuration -->
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div>
         <label class="block text-sm font-medium mb-1">Value</label>
         <input 
-          v-model.number="interval.value.value"
+          v-model.number="interval.value"
           type="number"
           min="1"
           class="w-full p-2 border rounded dark:bg-gray-800"
@@ -32,7 +30,10 @@
       
       <div>
         <label class="block text-sm font-medium mb-1">Unit</label>
-        <select v-model="interval.value.unit" class="w-full p-2 border rounded dark:bg-gray-800">
+        <select 
+          v-model="interval.unit"
+          class="w-full p-2 border rounded dark:bg-gray-800"
+        >
           <option value="seconds">Seconds</option>
           <option value="minutes">Minutes</option>
           <option value="hours">Hours</option>
@@ -50,14 +51,12 @@
       </div>
     </div>
     
-    <!-- Description -->
     <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
       <p class="text-sm">
         <strong>Description:</strong> {{ intervalDescription }}
       </p>
     </div>
     
-    <!-- Next run times -->
     <div class="mb-4">
       <h4 class="text-sm font-medium mb-2">Next Run Times</h4>
       <div class="space-y-1">
@@ -67,7 +66,6 @@
       </div>
     </div>
     
-    <!-- Actions -->
     <div class="flex gap-2">
       <button 
         @click="save"
@@ -87,7 +85,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { api } from '../composables/api'
 
 export default {
@@ -100,11 +98,15 @@ export default {
     initialSeconds: {
       type: Number,
       default: 3600
+    },
+    editingTrigger: {
+      type: Object,
+      default: null
     }
   },
   emits: ['save', 'cancel'],
   setup(props, { emit }) {
-    const interval = ref({
+    const interval = ref({ // interval is a ref to an object
       value: 1,
       unit: 'hours'
     })
@@ -135,7 +137,8 @@ export default {
     
     const intervalDescription = computed(() => {
       if (interval.value.value === 1) {
-        return `Run every ${interval.value.unit.slice(0, -1)}`
+        // Remove 's' from unit if value is 1 (e.g., "1 hour" instead of "1 hours")
+        return `Run every ${interval.value.unit.endsWith('s') ? interval.value.unit.slice(0, -1) : interval.value.unit}`
       } else {
         return `Run every ${interval.value.value} ${interval.value.unit}`
       }
@@ -148,7 +151,17 @@ export default {
     const nextRuns = ref([])
     
     // Watch for changes and update next run times
-    watch([interval, totalSeconds], calculateNextRuns, { deep: true })
+    watch(() => interval.value, calculateNextRuns, { deep: true })
+    
+    // Ensure interval has valid properties
+    watchEffect(() => {
+      if (typeof interval.value.value !== 'number' || interval.value.value <= 0) {
+        interval.value.value = 1
+      }
+      if (typeof interval.value.unit !== 'string' || !unitMultipliers[interval.value.unit]) {
+        interval.value.unit = 'hours'
+      }
+    })
     
     function applyPreset(preset) {
       interval.value.value = preset.value
@@ -194,14 +207,28 @@ export default {
           return
         }
         
-        const response = await api.post('/api/execution/triggers', {
-          script_id: script.id,
-          trigger_type: 'interval',
-          config: {
-            seconds: totalSeconds.value
-          },
-          enabled: true
-        })
+        let response
+        if (props.editingTrigger) {
+          // Update existing trigger
+          response = await api.put(`/api/execution/triggers/${props.editingTrigger.id}`, {
+            script_id: script.id,
+            trigger_type: 'interval',
+            config: {
+              seconds: totalSeconds.value
+            },
+            enabled: true
+          })
+        } else {
+          // Create new trigger
+          response = await api.post('/api/execution/triggers', {
+            script_id: script.id,
+            trigger_type: 'interval',
+            config: {
+              seconds: totalSeconds.value
+            },
+            enabled: true
+          })
+        }
         
         emit('save', response.data)
       } catch (error) {
@@ -240,6 +267,7 @@ export default {
     // Initialize
     initializeFromSeconds(props.initialSeconds)
     calculateNextRuns()
+    
     
     return {
       interval,

@@ -3,10 +3,12 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import json
 import re
+from croniter import croniter
 
 from ..database import get_db
 from ..auth import get_current_user
 from ..models import TriggerCreate, TriggerResponse, CronValidationRequest
+from ..timezone_utils import format_datetime_for_api
 
 router = APIRouter()
 
@@ -80,9 +82,14 @@ def calculate_next_run_time(trigger_type: str, config: dict) -> Optional[datetim
         return now + timedelta(seconds=seconds)
     
     elif trigger_type == "cron":
-        # For now, return a placeholder. In production, use croniter library
-        # This is a simplified implementation
-        return now + timedelta(hours=1)
+        # Use croniter library for accurate CRON calculations
+        cron_expression = config.get("expression", "0 * * * *")
+        try:
+            cron = croniter(cron_expression, now)
+            return cron.get_next(datetime)
+        except Exception:
+            # Fall back to hourly if CRON expression is invalid
+            return now + timedelta(hours=1)
     
     elif trigger_type == "startup":
         # Startup triggers run immediately when the system starts
@@ -175,7 +182,7 @@ async def create_trigger(
             INSERT INTO triggers (script_id, trigger_type, config, enabled, next_run_at)
             VALUES (?, ?, ?, ?, ?)
         """, (trigger.script_id, trigger.trigger_type, json.dumps(trigger.config), trigger.enabled, 
-              next_run_at.isoformat() if next_run_at else None))
+              format_datetime_for_api(next_run_at) if next_run_at else None))
         
         trigger_id = cursor.lastrowid
         
@@ -183,15 +190,23 @@ async def create_trigger(
         cursor = conn.execute("SELECT * FROM triggers WHERE id = ?", (trigger_id,))
         created_trigger = cursor.fetchone()
         
+        # Format datetime fields for API response
+        trigger_dict = dict(created_trigger)
+        datetime_fields = ['created_at', 'last_triggered_at', 'next_run_at']
+        for field in datetime_fields:
+            if trigger_dict.get(field):
+                dt = datetime.fromisoformat(trigger_dict[field].replace('Z', '+00:00'))
+                trigger_dict[field] = format_datetime_for_api(dt)
+        
         return TriggerResponse(
-            id=created_trigger["id"],
-            script_id=created_trigger["script_id"],
-            trigger_type=created_trigger["trigger_type"],
-            config=json.loads(created_trigger["config"]),
-            enabled=created_trigger["enabled"],
-            created_at=created_trigger["created_at"],
-            last_triggered_at=created_trigger["last_triggered_at"],
-            next_run_at=created_trigger["next_run_at"]
+            id=trigger_dict["id"],
+            script_id=trigger_dict["script_id"],
+            trigger_type=trigger_dict["trigger_type"],
+            config=json.loads(trigger_dict["config"]),
+            enabled=trigger_dict["enabled"],
+            created_at=trigger_dict["created_at"],
+            last_triggered_at=trigger_dict["last_triggered_at"],
+            next_run_at=trigger_dict["next_run_at"]
         )
 
 @router.get("/triggers", response_model=List[TriggerResponse])
@@ -213,15 +228,23 @@ async def list_triggers(
         cursor = conn.execute(query, params)
         triggers = []
         for row in cursor.fetchall():
+            # Format datetime fields for API response
+            trigger_dict = dict(row)
+            datetime_fields = ['created_at', 'last_triggered_at', 'next_run_at']
+            for field in datetime_fields:
+                if trigger_dict.get(field):
+                    dt = datetime.fromisoformat(trigger_dict[field].replace('Z', '+00:00'))
+                    trigger_dict[field] = format_datetime_for_api(dt)
+            
             triggers.append(TriggerResponse(
-                id=row["id"],
-                script_id=row["script_id"],
-                trigger_type=row["trigger_type"],
-                config=json.loads(row["config"]),
-                enabled=row["enabled"],
-                created_at=row["created_at"],
-                last_triggered_at=row["last_triggered_at"],
-                next_run_at=row["next_run_at"]
+                id=trigger_dict["id"],
+                script_id=trigger_dict["script_id"],
+                trigger_type=trigger_dict["trigger_type"],
+                config=json.loads(trigger_dict["config"]),
+                enabled=trigger_dict["enabled"],
+                created_at=trigger_dict["created_at"],
+                last_triggered_at=trigger_dict["last_triggered_at"],
+                next_run_at=trigger_dict["next_run_at"]
             ))
         
         return triggers
@@ -239,15 +262,23 @@ async def get_trigger(
         if not trigger:
             raise HTTPException(404, "Trigger not found")
         
+        # Format datetime fields for API response
+        trigger_dict = dict(trigger)
+        datetime_fields = ['created_at', 'last_triggered_at', 'next_run_at']
+        for field in datetime_fields:
+            if trigger_dict.get(field):
+                dt = datetime.fromisoformat(trigger_dict[field].replace('Z', '+00:00'))
+                trigger_dict[field] = format_datetime_for_api(dt)
+        
         return TriggerResponse(
-            id=trigger["id"],
-            script_id=trigger["script_id"],
-            trigger_type=trigger["trigger_type"],
-            config=json.loads(trigger["config"]),
-            enabled=trigger["enabled"],
-            created_at=trigger["created_at"],
-            last_triggered_at=trigger["last_triggered_at"],
-            next_run_at=trigger["next_run_at"]
+            id=trigger_dict["id"],
+            script_id=trigger_dict["script_id"],
+            trigger_type=trigger_dict["trigger_type"],
+            config=json.loads(trigger_dict["config"]),
+            enabled=trigger_dict["enabled"],
+            created_at=trigger_dict["created_at"],
+            last_triggered_at=trigger_dict["last_triggered_at"],
+            next_run_at=trigger_dict["next_run_at"]
         )
 
 @router.put("/triggers/{trigger_id}")

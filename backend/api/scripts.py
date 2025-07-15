@@ -8,6 +8,7 @@ from ..auth import get_current_user
 from ..models import ScriptCreate, ScriptUpdate, ScriptResponse, AutoSaveRequest
 from ..utils import generate_safe_name, ensure_unique_safe_name, get_folder_path
 from ..virtual_env import VirtualEnvironmentManager
+from ..timezone_utils import format_datetime_for_api
 
 router = APIRouter()
 
@@ -26,6 +27,15 @@ async def list_scripts(current_user: dict = Depends(get_current_user)):
         for row in cursor.fetchall():
             script_dict = dict(row)
             script_dict.pop('folder_name', None)  # Remove join field
+            
+            # Format datetime fields for API response
+            datetime_fields = ['created_at', 'updated_at', 'last_executed_at']
+            for field in datetime_fields:
+                if script_dict.get(field):
+                    # Parse SQLite datetime string and format for API
+                    dt = datetime.fromisoformat(script_dict[field].replace('Z', '+00:00'))
+                    script_dict[field] = format_datetime_for_api(dt)
+            
             scripts.append(ScriptResponse(**script_dict))
         return scripts
 
@@ -53,13 +63,13 @@ async def create_script(
         cursor = conn.execute("""
             INSERT INTO scripts (
                 name, safe_name, description, content, folder_id, python_version,
-                requirements, email_notifications, email_recipients,
+                requirements, email_notifications, email_recipients, email_trigger_type,
                 environment_variables, auto_save
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             script.name, safe_name, script.description, script.content, script.folder_id,
             script.python_version, script.requirements,
-            script.email_notifications, script.email_recipients,
+            script.email_notifications, script.email_recipients, script.email_trigger_type,
             script.environment_variables, script.auto_save
         ))
         
@@ -153,6 +163,10 @@ async def update_script(
             updates.append("email_recipients = ?")
             params.append(script.email_recipients)
         
+        if script.email_trigger_type is not None:
+            updates.append("email_trigger_type = ?")
+            params.append(script.email_trigger_type)
+        
         if script.environment_variables is not None:
             updates.append("environment_variables = ?")
             params.append(script.environment_variables)
@@ -205,7 +219,7 @@ async def auto_save_script(
         if cursor.rowcount == 0:
             raise HTTPException(404, "Script not found or auto-save disabled")
         
-        return {"success": True, "saved_at": datetime.now().isoformat()}
+        return {"success": True, "saved_at": format_datetime_for_api(datetime.now())}
 
 @router.post("/{safe_name}/execute")
 async def execute_script(
@@ -222,72 +236,16 @@ async def execute_script(
         if not script:
             raise HTTPException(404, "Script not found or disabled")
         
-        # Execute script directly for now (should use Celery in production)
-        folder_path = get_folder_path(script["folder_id"])
-        manager = VirtualEnvironmentManager(script["safe_name"], folder_path)
+        # Queue script execution through Celery
+        from ..tasks import execute_script_task
+        task = execute_script_task.delay(script["id"], None, "manual")
         
-        try:
-            import asyncio
-            from concurrent.futures import ThreadPoolExecutor
-            
-            # Create a new event loop for the thread
-            def run_script():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    return loop.run_until_complete(manager.execute_script(
-                        script["content"], 
-                        script["environment_variables"] or "{}"
-                    ))
-                finally:
-                    loop.close()
-            
-            # Run in a thread pool to avoid event loop conflicts
-            with ThreadPoolExecutor() as executor:
-                future = executor.submit(run_script)
-                result = future.result()
-            
-            # Log execution
-            cursor = conn.execute("""
-                INSERT INTO execution_logs (
-                    script_id, started_at, finished_at, duration_ms, status,
-                    exit_code, stdout, stderr, triggered_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                script["id"],
-                datetime.now().isoformat(),
-                datetime.now().isoformat(),
-                result["duration_ms"],
-                "success" if result["exit_code"] == 0 else "failed",
-                result["exit_code"],
-                result["stdout"],
-                result["stderr"],
-                "manual"
-            ))
-            
-            # Update script statistics
-            conn.execute("""
-                UPDATE scripts SET
-                    last_executed_at = CURRENT_TIMESTAMP,
-                    execution_count = execution_count + 1,
-                    success_count = success_count + ?
-                WHERE id = ?
-            """, (1 if result["exit_code"] == 0 else 0, script["id"]))
-            
-            return {
-                "success": True,
-                "status": "success" if result["exit_code"] == 0 else "failed",
-                "exit_code": result["exit_code"],
-                "stdout": result["stdout"],
-                "stderr": result["stderr"],
-                "duration_ms": result["duration_ms"]
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+        return {
+            "success": True,
+            "task_id": task.id,
+            "script": script["name"],
+            "message": f"Script '{script['name']}' queued for execution"
+        }
 
 @router.get("/{safe_name}/trigger")
 async def trigger_script_via_url(
@@ -297,11 +255,11 @@ async def trigger_script_via_url(
     """Execute script via URL trigger (with optional API key)"""
     # Check API key if provided
     if api_key:
-        with get_db() as conn:
-            cursor = conn.execute("SELECT value FROM settings WHERE key = 'api_key'")
-            stored_key = cursor.fetchone()
-            if not stored_key or stored_key["value"] != api_key:
-                raise HTTPException(401, "Invalid API key")
+        from .settings import load_settings
+        settings = load_settings()
+        stored_key = settings.get("app_settings", {}).get("api_key")
+        if not stored_key or stored_key != api_key:
+            raise HTTPException(401, "Invalid API key")
     
     # Find and execute script
     with get_db() as conn:
@@ -313,61 +271,16 @@ async def trigger_script_via_url(
         if not script:
             raise HTTPException(404, "Script not found or disabled")
         
-        # Execute script (simplified for now)
-        folder_path = get_folder_path(script["folder_id"])
-        manager = VirtualEnvironmentManager(script["safe_name"], folder_path)
+        # Queue script execution through Celery
+        from ..tasks import execute_script_task
+        task = execute_script_task.delay(script["id"], None, "url")
         
-        try:
-            import asyncio
-            from concurrent.futures import ThreadPoolExecutor
-            
-            # Create a new event loop for the thread
-            def run_script():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    return loop.run_until_complete(manager.execute_script(
-                        script["content"], 
-                        script["environment_variables"] or "{}"
-                    ))
-                finally:
-                    loop.close()
-            
-            # Run in a thread pool to avoid event loop conflicts
-            with ThreadPoolExecutor() as executor:
-                future = executor.submit(run_script)
-                result = future.result()
-            
-            # Log execution
-            cursor = conn.execute("""
-                INSERT INTO execution_logs (
-                    script_id, started_at, finished_at, duration_ms, status,
-                    exit_code, stdout, stderr, triggered_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                script["id"],
-                datetime.now().isoformat(),
-                datetime.now().isoformat(),
-                result["duration_ms"],
-                "success" if result["exit_code"] == 0 else "failed",
-                result["exit_code"],
-                result["stdout"],
-                result["stderr"],
-                "url"
-            ))
-            
-            return {
-                "success": True,
-                "script": script["name"],
-                "status": "success" if result["exit_code"] == 0 else "failed",
-                "message": f"Script '{script['name']}' executed successfully"
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+        return {
+            "success": True,
+            "task_id": task.id,
+            "script": script["name"],
+            "message": f"Script '{script['name']}' queued for execution"
+        }
 
 @router.delete("/{safe_name}")
 async def delete_script(

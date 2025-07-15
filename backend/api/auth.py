@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 from ..database import get_db, hash_password
 from ..auth import create_access_token, verify_password, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..models import UserCreate, UserResponse, LoginRequest, LoginResponse
+from ..timezone_utils import get_timezone_list, validate_timezone
 
 router = APIRouter()
 
@@ -112,10 +114,13 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
         last_login_at=current_user["last_login_at"]
     )
 
+class UserUpdateRequest(BaseModel):
+    theme: Optional[str] = None
+    timezone: Optional[str] = None
+
 @router.put("/me", response_model=UserResponse)
 async def update_current_user(
-    theme: str = None,
-    timezone: str = None,
+    update_data: UserUpdateRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """Update current user preferences"""
@@ -123,13 +128,18 @@ async def update_current_user(
         updates = []
         params = []
         
-        if theme:
+        if update_data.theme is not None:
             updates.append("theme = ?")
-            params.append(theme)
+            params.append(update_data.theme)
         
-        if timezone:
+        if update_data.timezone is not None:
+            if not validate_timezone(update_data.timezone):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid timezone"
+                )
             updates.append("timezone = ?")
-            params.append(timezone)
+            params.append(update_data.timezone)
         
         if updates:
             query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
@@ -175,3 +185,8 @@ async def list_users(current_user: dict = Depends(get_current_user)):
                 last_login_at=row["last_login_at"]
             ))
         return users
+
+@router.get("/timezones")
+async def get_timezones():
+    """Get list of available timezones"""
+    return get_timezone_list()

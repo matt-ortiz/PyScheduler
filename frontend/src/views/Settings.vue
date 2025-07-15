@@ -42,6 +42,22 @@
           </div>
           
           <div>
+            <label class="label">Timezone</label>
+            <select v-model="userTimezone" @change="updateTimezone" class="select">
+              <option value="">Select timezone...</option>
+              <option v-for="tz in timezones" :key="tz.value" :value="tz.value">
+                {{ tz.label }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">
+              Current time: {{ currentTime }} ({{ userTimezone }})
+            </p>
+            <p class="text-xs text-gray-400 mt-1">
+              {{ timezones.length }} timezones loaded
+            </p>
+          </div>
+          
+          <div>
             <label class="label">Default Script Timeout (seconds)</label>
             <input v-model="settings.default_script_timeout" type="number" class="input">
           </div>
@@ -134,7 +150,10 @@
           <div>
             <label class="label">API Key</label>
             <div class="flex space-x-2">
-              <input v-model="settings.api_key" type="password" class="input" readonly>
+              <input v-model="settings.api_key" type="text" class="input font-mono" readonly>
+              <button @click="copyApiKey" class="btn btn-secondary">
+                Copy Key
+              </button>
               <button @click="generateApiKey" class="btn btn-secondary">
                 Generate New Key
               </button>
@@ -143,9 +162,10 @@
           
           <div class="text-sm text-gray-600 dark:text-gray-400">
             <p>Use this API key to trigger scripts via URL:</p>
-            <code class="bg-gray-100 dark:bg-gray-800 p-2 rounded">
-              GET /api/scripts/{script_id}/trigger?api_key=YOUR_API_KEY
+            <code class="bg-gray-100 dark:bg-gray-800 p-2 rounded block">
+              GET /api/scripts/{safe_name}/trigger?api_key=YOUR_API_KEY
             </code>
+            <p class="mt-2 text-xs">Replace {safe_name} with your script's safe name (e.g., "hello-world")</p>
           </div>
         </div>
       </div>
@@ -161,16 +181,29 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useScriptStore } from '../stores/scripts'
+import { useAuthStore } from '../stores/auth'
+import { api } from '../composables/api'
 import axios from 'axios'
 
 export default {
   name: 'Settings',
   setup() {
     const scriptStore = useScriptStore()
+    const authStore = useAuthStore()
     
     const theme = ref('dark')
+    const userTimezone = ref('UTC')
+    const timezones = ref([
+      { value: 'UTC', label: 'UTC' },
+      { value: 'US/Eastern', label: 'Eastern Time' },
+      { value: 'US/Central', label: 'Central Time' },
+      { value: 'US/Mountain', label: 'Mountain Time' },
+      { value: 'US/Pacific', label: 'Pacific Time' }
+    ])
+    const currentTime = ref('')
+    const timeInterval = ref(null)
     const settings = ref({
       default_script_timeout: '300',
       default_memory_limit: '512',
@@ -198,35 +231,109 @@ export default {
       return total > 0 ? Math.round((successful / total) * 100) : 0
     })
     
-    const updateTheme = () => {
-      if (theme.value === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
+    const updateTheme = async () => {
+      try {
+        await authStore.updateUserSettings({ theme: theme.value })
+        if (theme.value === 'dark') {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+        localStorage.setItem('theme', theme.value)
+      } catch (error) {
+        console.error('Error updating theme:', error)
+        alert('Failed to update theme')
       }
-      localStorage.setItem('theme', theme.value)
     }
     
-    const generateApiKey = () => {
-      const key = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-      settings.value.api_key = key
+    const updateCurrentTime = () => {
+      const now = new Date()
+      currentTime.value = now.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: userTimezone.value
+      })
+    }
+    
+    const updateTimezone = async () => {
+      try {
+        await authStore.updateUserSettings({ timezone: userTimezone.value })
+        updateCurrentTime()
+        alert('Timezone updated successfully!')
+      } catch (error) {
+        console.error('Error updating timezone:', error)
+        alert('Failed to update timezone')
+      }
+    }
+    
+    const loadTimezones = async () => {
+      try {
+        const response = await axios.get('/api/auth/timezones')
+        timezones.value = response.data
+        console.log('Loaded timezones:', timezones.value)
+      } catch (error) {
+        console.error('Error loading timezones:', error)
+        // Fallback to static timezones if API fails
+        timezones.value = [
+          { value: 'UTC', label: 'UTC' },
+          { value: 'US/Eastern', label: 'Eastern Time' },
+          { value: 'US/Central', label: 'Central Time' },
+          { value: 'US/Mountain', label: 'Mountain Time' },
+          { value: 'US/Pacific', label: 'Pacific Time' }
+        ]
+      }
+    }
+    
+    const generateApiKey = async () => {
+      try {
+        const response = await axios.post('/api/settings/api-key/generate')
+        settings.value.api_key = response.data.api_key
+        alert('New API key generated successfully!')
+      } catch (error) {
+        alert(`Failed to generate API key: ${error.response?.data?.detail || error.message}`)
+      }
+    }
+    
+    const copyApiKey = async () => {
+      try {
+        await navigator.clipboard.writeText(settings.value.api_key)
+        alert('API key copied to clipboard!')
+      } catch (error) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = settings.value.api_key
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        alert('API key copied to clipboard!')
+      }
     }
     
     const testEmailConnection = async () => {
       try {
-        // This would call a backend endpoint to test email connection
-        alert('Email connection test would be implemented here')
+        const response = await axios.post('/api/settings/email/test', emailSettings.value)
+        if (response.data.success) {
+          alert('Email connection test successful!')
+        } else {
+          alert(`Email connection test failed: ${response.data.error}`)
+        }
       } catch (error) {
-        alert('Email connection test failed')
+        alert(`Email connection test failed: ${error.response?.data?.detail || error.message}`)
       }
     }
     
     const saveEmailSettings = async () => {
       try {
-        // This would save email settings to backend
-        alert('Email settings saved successfully')
+        await axios.put('/api/settings/email', emailSettings.value)
+        alert('Email settings saved successfully!')
       } catch (error) {
-        alert('Failed to save email settings')
+        alert(`Failed to save email settings: ${error.response?.data?.detail || error.message}`)
       }
     }
     
@@ -252,40 +359,76 @@ export default {
     
     const saveSettings = async () => {
       try {
-        // This would save all settings to backend
-        alert('Settings saved successfully')
+        const allSettings = {
+          app_settings: settings.value,
+          email_settings: emailSettings.value
+        }
+        await axios.put('/api/settings/', allSettings)
+        alert('All settings saved successfully!')
       } catch (error) {
-        alert('Failed to save settings')
+        alert(`Failed to save settings: ${error.response?.data?.detail || error.message}`)
       }
     }
     
     onMounted(async () => {
-      await scriptStore.fetchScripts()
-      
-      // Load theme from localStorage
-      const savedTheme = localStorage.getItem('theme')
-      if (savedTheme) {
-        theme.value = savedTheme
+      try {
+        await scriptStore.fetchScripts()
+        
+        // Load theme from localStorage
+        const savedTheme = localStorage.getItem('theme')
+        if (savedTheme) {
+          theme.value = savedTheme
+        }
+        
+        // Load user timezone from auth store
+        if (authStore.user && authStore.user.timezone) {
+          userTimezone.value = authStore.user.timezone
+        } else {
+          userTimezone.value = 'UTC'
+        }
+        
+        // Load timezones and start time updates
+        await loadTimezones()
+        updateCurrentTime()
+        timeInterval.value = setInterval(updateCurrentTime, 1000)
+      } catch (error) {
+        console.error('Error in onMounted:', error)
       }
       
-      // Load settings from backend (placeholder)
+      // Load settings from backend
       try {
-        // const response = await axios.get('/api/settings')
-        // settings.value = response.data
+        const response = await axios.get('/api/settings/')
+        if (response.data.app_settings) {
+          settings.value = response.data.app_settings
+        }
+        if (response.data.email_settings) {
+          emailSettings.value = response.data.email_settings
+        }
       } catch (error) {
         console.error('Error loading settings:', error)
       }
     })
     
+    onUnmounted(() => {
+      if (timeInterval.value) {
+        clearInterval(timeInterval.value)
+      }
+    })
+    
     return {
       theme,
+      userTimezone,
+      timezones,
+      currentTime,
       settings,
       emailSettings,
       scripts,
       totalExecutions,
       successRate,
       updateTheme,
+      updateTimezone,
       generateApiKey,
+      copyApiKey,
       testEmailConnection,
       saveEmailSettings,
       cleanupLogs,

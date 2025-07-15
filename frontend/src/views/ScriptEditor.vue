@@ -14,6 +14,9 @@
         <button @click="saveScript" class="btn btn-primary">
           💾 Save
         </button>
+        <button v-if="isEditing" @click="deleteScript" class="btn btn-danger">
+          🗑️ Delete
+        </button>
         <button @click="goBack" class="btn btn-secondary">
           ← Back
         </button>
@@ -47,6 +50,25 @@
         <div class="mt-4">
           <label class="label">Description</label>
           <textarea v-model="script.description" class="textarea" rows="2"></textarea>
+        </div>
+        
+        <!-- API Trigger URL -->
+        <div v-if="isEditing" class="mt-4">
+          <label class="label">API Trigger URL</label>
+          <div class="flex items-center space-x-2">
+            <input 
+              :value="apiTriggerUrl" 
+              readonly 
+              class="input flex-1 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400" 
+              placeholder="API trigger URL will appear here"
+            >
+            <button @click="copyApiUrl" class="btn btn-secondary px-3">
+              📋
+            </button>
+          </div>
+          <p class="text-sm text-gray-500 mt-1">
+            Use this URL to trigger the script remotely. API key is required.
+          </p>
         </div>
       </div>
 
@@ -189,6 +211,17 @@
             <input v-model="script.email_recipients" type="text" class="input" 
                    placeholder="user@example.com, admin@example.com">
           </div>
+          <div v-if="script.email_notifications">
+            <label class="label">Email Trigger</label>
+            <select v-model="script.email_trigger_type" class="select">
+              <option value="all">Send on all executions</option>
+              <option value="success">Send on success only</option>
+              <option value="failure">Send on failure only</option>
+            </select>
+            <p class="text-sm text-gray-500 mt-1">
+              Emails will include the complete console output (stdout and stderr).
+            </p>
+          </div>
           <div>
             <label class="label">Environment Variables (JSON)</label>
             <textarea 
@@ -298,6 +331,7 @@ export default {
       enabled: true,
       email_notifications: false,
       email_recipients: '',
+      email_trigger_type: 'all',
       environment_variables: '{}',
       execution_count: 0,
       success_count: 0,
@@ -311,6 +345,11 @@ export default {
       // Check if user prefers dark mode
       return document.documentElement.classList.contains('dark') ||
              window.matchMedia('(prefers-color-scheme: dark)').matches
+    })
+    
+    const apiTriggerUrl = computed(() => {
+      if (!isEditing.value || !script.value.safe_name) return ''
+      return `${window.location.origin}/api/scripts/${script.value.safe_name}/trigger?api_key=YOUR_API_KEY`
     })
     
     const onContentChange = () => {
@@ -363,6 +402,39 @@ export default {
     
     const formatDate = (dateString) => {
       return new Date(dateString).toLocaleString()
+    }
+    
+    const deleteScript = async () => {
+      if (!isEditing.value) return
+      
+      const confirmed = confirm(`Are you sure you want to delete "${script.value.name}"? This action cannot be undone.`)
+      if (!confirmed) return
+      
+      try {
+        await scriptStore.deleteScript(route.params.safeName)
+        alert('Script deleted successfully!')
+        router.push({ name: 'ScriptList' })
+      } catch (error) {
+        alert(`Error deleting script: ${error.message}`)
+      }
+    }
+    
+    const copyApiUrl = async () => {
+      if (!apiTriggerUrl.value) return
+      
+      try {
+        await navigator.clipboard.writeText(apiTriggerUrl.value)
+        alert('API trigger URL copied to clipboard!')
+      } catch (error) {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea')
+        textArea.value = apiTriggerUrl.value
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        alert('API trigger URL copied to clipboard!')
+      }
     }
     
     const goBack = () => {
@@ -432,11 +504,14 @@ export default {
       isDarkMode,
       venvInfo,
       venvLoading,
+      apiTriggerUrl,
       onContentChange,
       onRequirementsChange,
       toggleEnabled,
       refreshVenvInfo,
       formatDate,
+      deleteScript,
+      copyApiUrl,
       goBack,
       saveScript,
       executeScript,

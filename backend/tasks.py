@@ -10,6 +10,7 @@ from .database import get_db
 from .virtual_env import VirtualEnvironmentManager
 from .websocket_manager import broadcast_event
 from .email_service import send_script_notification
+from .timezone_utils import format_datetime_for_api
 
 # Celery configuration
 celery_app = Celery(
@@ -56,7 +57,7 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
                 INSERT INTO execution_logs (
                     script_id, trigger_id, started_at, status, triggered_by
                 ) VALUES (?, ?, ?, 'running', ?)
-            """, (script_id, trigger_id, datetime.now().isoformat(), triggered_by))
+            """, (script_id, trigger_id, format_datetime_for_api(datetime.now()), triggered_by))
             execution_log_id = cursor.lastrowid
         
         # Broadcast execution start
@@ -89,7 +90,7 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
                     stderr = ?
                 WHERE id = ?
             """, (
-                datetime.now().isoformat(),
+                format_datetime_for_api(datetime.now()),
                 result["duration_ms"],
                 status,
                 result["exit_code"],
@@ -107,14 +108,38 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
                 WHERE id = ?
             """, (1 if status == "success" else 0, script_id))
         
-        # Send email notification if enabled
+        # Send email notification if enabled and trigger conditions are met
+        print(f"[TASK] Checking email notification for script: {script['name']}")
+        print(f"[TASK] Email notifications enabled: {script['email_notifications']}")
+        print(f"[TASK] Email recipients: {script['email_recipients']}")
+        
         if script["email_notifications"] and script["email_recipients"]:
-            send_script_notification(
-                script["name"],
-                status,
-                result["stdout"] + "\n" + result["stderr"],
-                script["email_recipients"]
-            )
+            email_trigger_type = script["email_trigger_type"] if script["email_trigger_type"] else "all"
+            should_send_email = False
+            
+            print(f"[TASK] Email trigger type: {email_trigger_type}")
+            print(f"[TASK] Script execution status: {status}")
+            
+            if email_trigger_type == "all":
+                should_send_email = True
+            elif email_trigger_type == "success" and status == "success":
+                should_send_email = True
+            elif email_trigger_type == "failure" and status == "failed":
+                should_send_email = True
+            
+            print(f"[TASK] Should send email: {should_send_email}")
+            
+            if should_send_email:
+                print(f"[TASK] Sending email notification...")
+                email_result = send_script_notification(
+                    script["name"],
+                    status,
+                    result["stdout"] + "\n" + result["stderr"],
+                    script["email_recipients"]
+                )
+                print(f"[TASK] Email sending result: {email_result}")
+        else:
+            print(f"[TASK] Email notifications not enabled or no recipients")
         
         # Broadcast execution completion
         asyncio.run(broadcast_event("script_execution_completed", {
@@ -141,7 +166,7 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
                         status = 'failed',
                         stderr = ?
                     WHERE id = ?
-                """, (datetime.now().isoformat(), str(exc), execution_log_id))
+                """, (format_datetime_for_api(datetime.now()), str(exc), execution_log_id))
         
         # Broadcast error
         asyncio.run(broadcast_event("script_execution_error", {

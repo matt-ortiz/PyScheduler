@@ -13,6 +13,7 @@ class ScriptCreate(BaseModel):
     requirements: str = Field("", max_length=10000)
     email_notifications: bool = False
     email_recipients: str = Field("", max_length=500)
+    email_trigger_type: str = Field("all", pattern=r"^(all|success|failure)$")
     environment_variables: str = Field("{}", max_length=5000)
     auto_save: bool = True
     
@@ -76,6 +77,7 @@ class ScriptUpdate(BaseModel):
     requirements: Optional[str] = Field(None, max_length=10000)
     email_notifications: Optional[bool] = None
     email_recipients: Optional[str] = Field(None, max_length=500)
+    email_trigger_type: Optional[str] = Field(None, pattern=r"^(all|success|failure)$")
     environment_variables: Optional[str] = Field(None, max_length=5000)
     auto_save: Optional[bool] = None
     enabled: Optional[bool] = None
@@ -97,6 +99,7 @@ class ScriptResponse(BaseModel):
     success_count: int
     email_notifications: bool
     email_recipients: str
+    email_trigger_type: str
     environment_variables: str
     auto_save: bool
 

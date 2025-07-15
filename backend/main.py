@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from .database import init_database
-from .api import auth, scripts, folders, logs, execution
+from .api import auth, scripts, folders, logs, execution, settings
 from .websocket_manager import WebSocketManager
 
 # Initialize database
@@ -43,6 +43,7 @@ app.include_router(scripts.router, prefix="/api/scripts", tags=["scripts"])
 app.include_router(folders.router, prefix="/api/folders", tags=["folders"])
 app.include_router(logs.router, prefix="/api/logs", tags=["logs"])
 app.include_router(execution.router, prefix="/api/execution", tags=["execution"])
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 
 # WebSocket endpoint
 @app.websocket("/ws")

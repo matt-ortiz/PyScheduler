@@ -67,11 +67,18 @@
     </div>
     
     <!-- Add/Edit trigger modal -->
-    <div v-if="showAddTrigger || editingTrigger" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div v-if="showAddTrigger || editingTrigger" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @keydown.escape="closeModal">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold mb-4">
-          {{ editingTrigger ? 'Edit Trigger' : 'Add New Trigger' }}
-        </h3>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold">
+            {{ editingTrigger ? 'Edit Trigger' : 'Add New Trigger' }}
+          </h3>
+          <button @click="closeModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
         
         <!-- Trigger type selection -->
         <div class="mb-4">
@@ -92,19 +99,12 @@
         
         <!-- Scheduler components -->
         <div class="mb-4">
-          <!-- Debug info -->
-          <div class="p-3 bg-yellow-100 dark:bg-yellow-900 text-sm rounded mb-4">
-            <strong>Debug Info:</strong><br>
-            selectedTriggerType: {{ selectedTriggerType }}<br>
-            scriptId: {{ scriptId }}<br>
-            scriptSafeName: {{ scriptSafeName }}<br>
-            Condition for Interval: {{ selectedTriggerType === 'interval' && scriptId }}
-          </div>
           
           <CronBuilder 
             v-if="selectedTriggerType === 'cron' && scriptId"
             :script-id="scriptId"
             :initial-expression="editingTrigger?.config?.expression || '0 0 * * *'"
+            :editing-trigger="editingTrigger"
             @save="onTriggerSave"
             @cancel="closeModal"
           />
@@ -118,6 +118,7 @@
             v-if="selectedTriggerType === 'interval' && scriptId"
             :script-safe-name="scriptSafeName"
             :initial-seconds="editingTrigger?.config?.seconds || 3600"
+            :editing-trigger="editingTrigger"
             @save="onTriggerSave"
             @cancel="closeModal"
           />
@@ -127,12 +128,6 @@
             <p class="text-sm text-gray-500">Loading script information...</p>
           </div>
           
-          <!-- Additional debug for interval case -->
-          <div v-if="selectedTriggerType === 'interval'" class="p-3 bg-blue-100 dark:bg-blue-900 text-sm rounded">
-            <strong>Interval Debug:</strong><br>
-            Should show IntervalScheduler: {{ scriptId ? 'YES' : 'NO' }}<br>
-            Should show loading: {{ !scriptId ? 'YES' : 'NO' }}
-          </div>
           
           <div v-if="selectedTriggerType === 'manual'" class="text-center py-8">
             <h4 class="text-lg font-medium mb-2">Manual Trigger</h4>
@@ -180,7 +175,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { api } from '../composables/api'
 import { useScriptStore } from '../stores/scripts'
 import CronBuilder from './CronBuilder.vue'
@@ -204,6 +199,13 @@ export default {
     const showAddTrigger = ref(false)
     const editingTrigger = ref(null)
     const selectedTriggerType = ref('cron')
+    
+    // Handle escape key
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        closeModal()
+      }
+    }
     
     // Get script ID from safe name
     const scriptId = computed(() => {
@@ -371,6 +373,14 @@ export default {
       await scriptStore.fetchScripts()
       console.log('TriggerManager onMounted - scripts loaded, now loading triggers')
       loadTriggers()
+      
+      // Add global keyboard event listener
+      document.addEventListener('keydown', handleKeyDown)
+    })
+    
+    onUnmounted(() => {
+      // Remove global keyboard event listener
+      document.removeEventListener('keydown', handleKeyDown)
     })
     
     return {

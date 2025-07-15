@@ -2,21 +2,24 @@
   <div class="logs-view">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Execution Logs</h1>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
+        <!-- Script Filter -->
         <select 
           v-model="selectedScript" 
           @change="applyFilters"
-          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800"
+          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-sm"
         >
           <option value="">All Scripts</option>
           <option v-for="script in scripts" :key="script.id" :value="script.id">
             {{ script.name }}
           </option>
         </select>
+
+        <!-- Status Filter -->
         <select 
           v-model="selectedStatus" 
           @change="applyFilters"
-          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800"
+          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-sm"
         >
           <option value="">All Statuses</option>
           <option value="success">Success</option>
@@ -24,13 +27,100 @@
           <option value="running">Running</option>
           <option value="timeout">Timeout</option>
         </select>
-        <button 
-          @click="refreshLogs"
-          :disabled="loading"
-          class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {{ loading ? '🔄' : '🔄 Refresh' }}
-        </button>
+
+        <!-- Date Range Filter -->
+        <input 
+          v-model="dateFrom" 
+          @change="applyFilters"
+          type="date" 
+          placeholder="From date"
+          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-sm"
+        />
+        <input 
+          v-model="dateTo" 
+          @change="applyFilters"
+          type="date" 
+          placeholder="To date"
+          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-sm"
+        />
+
+        <!-- Search Input -->
+        <input 
+          v-model="searchTerm" 
+          @input="debounceSearch"
+          type="text" 
+          placeholder="Search logs..."
+          class="px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-sm flex-1 min-w-48"
+        />
+
+        <!-- Actions -->
+        <div class="flex gap-2">
+          <button 
+            @click="refreshLogs"
+            :disabled="loading"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm"
+          >
+            {{ loading ? '🔄' : '🔄 Refresh' }}
+          </button>
+          
+          <button 
+            @click="clearFilters"
+            v-if="hasFilters"
+            class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
+          >
+            Clear Filters
+          </button>
+
+          <!-- Export Button -->
+          <div class="relative">
+            <button 
+              @click="showExportMenu = !showExportMenu"
+              class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+            >
+              📊 Export
+            </button>
+            <div v-if="showExportMenu" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border rounded shadow-lg z-10">
+              <button 
+                @click="exportLogs('csv')"
+                class="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+              >
+                Export as CSV
+              </button>
+              <button 
+                @click="exportLogs('json')"
+                class="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+              >
+                Export as JSON
+              </button>
+            </div>
+          </div>
+
+          <!-- Bulk Actions -->
+          <div class="relative" v-if="selectedLogs.length > 0">
+            <button 
+              @click="showBulkMenu = !showBulkMenu"
+              class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+            >
+              🗑️ Bulk ({{ selectedLogs.length }})
+            </button>
+            <div v-if="showBulkMenu" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border rounded shadow-lg z-10">
+              <button 
+                @click="bulkDeleteLogs"
+                class="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm text-red-600"
+              >
+                Delete Selected
+              </button>
+            </div>
+          </div>
+
+          <!-- Cleanup Button -->
+          <button 
+            @click="showCleanupDialog = true"
+            class="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm"
+          >
+            🧹 Cleanup
+          </button>
+        </div>
       </div>
     </div>
 
@@ -78,22 +168,37 @@
       <div 
         v-for="log in logs" 
         :key="log.id"
-        class="border rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow cursor-pointer"
-        @click="selectedLog = selectedLog?.id === log.id ? null : log"
+        class="border rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow"
+        :class="selectedLogs.includes(log.id) ? 'ring-2 ring-blue-500' : ''"
       >
         <!-- Log Header -->
         <div class="flex justify-between items-start mb-2">
           <div class="flex items-center gap-3">
+            <!-- Bulk Selection Checkbox -->
+            <input 
+              type="checkbox" 
+              :checked="selectedLogs.includes(log.id)"
+              @change="toggleLogSelection(log.id)"
+              @click.stop
+              class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            />
+            
             <span 
               class="px-2 py-1 text-xs rounded font-medium"
               :class="getStatusClass(log.status)"
             >
               {{ log.status.toUpperCase() }}
             </span>
-            <span class="font-medium text-gray-900 dark:text-gray-100">
+            <span 
+              class="font-medium text-gray-900 dark:text-gray-100 cursor-pointer"
+              @click="selectedLog = selectedLog?.id === log.id ? null : log"
+            >
               {{ getScriptName(log.script_id) }}
             </span>
-            <span class="text-sm text-gray-500">
+            <span 
+              class="text-sm text-gray-500 cursor-pointer"
+              @click="selectedLog = selectedLog?.id === log.id ? null : log"
+            >
               {{ formatDateTime(log.started_at) }}
             </span>
             <span v-if="log.triggered_by" class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
@@ -181,28 +286,83 @@
         {{ loadingMore ? 'Loading...' : 'Load More' }}
       </button>
     </div>
+
+    <!-- Cleanup Dialog -->
+    <div v-if="showCleanupDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-lg font-semibold mb-4">Cleanup Old Logs</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+          Delete execution logs older than the specified number of days.
+        </p>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Days to keep:</label>
+          <input 
+            v-model.number="cleanupDays" 
+            type="number" 
+            min="1" 
+            max="365"
+            class="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700"
+          />
+        </div>
+
+        <div class="flex gap-2 justify-end">
+          <button 
+            @click="showCleanupDialog = false"
+            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="performCleanup"
+            :disabled="cleanupLoading"
+            class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+          >
+            {{ cleanupLoading ? 'Cleaning...' : 'Cleanup' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../composables/api'
+import { useAuthStore } from '../stores/auth'
+import { useDateTime } from '../composables/datetime'
 
 export default {
   name: 'LogsView',
   setup() {
+    const authStore = useAuthStore()
+    const { formatDateTime } = useDateTime()
     const logs = ref([])
     const scripts = ref([])
     const globalStats = ref(null)
     const selectedLog = ref(null)
     const selectedScript = ref('')
     const selectedStatus = ref('')
+    const dateFrom = ref('')
+    const dateTo = ref('')
+    const searchTerm = ref('')
     const loading = ref(false)
     const loadingMore = ref(false)
     const limit = 50
     const offset = ref(0)
+    
+    // New state for enhanced features
+    const selectedLogs = ref([])
+    const showExportMenu = ref(false)
+    const showBulkMenu = ref(false)
+    const showCleanupDialog = ref(false)
+    const cleanupDays = ref(30)
+    const cleanupLoading = ref(false)
+    const searchTimeout = ref(null)
 
-    const hasFilters = computed(() => selectedScript.value || selectedStatus.value)
+    const hasFilters = computed(() => 
+      selectedScript.value || selectedStatus.value || dateFrom.value || dateTo.value || searchTerm.value
+    )
 
     async function loadScripts() {
       try {
@@ -235,7 +395,19 @@ export default {
           params.append('status', selectedStatus.value)
         }
 
-        const response = await api.get(`/api/logs?${params}`)
+        if (dateFrom.value) {
+          params.append('date_from', dateFrom.value)
+        }
+
+        if (dateTo.value) {
+          params.append('date_to', dateTo.value)
+        }
+
+        if (searchTerm.value) {
+          params.append('search', searchTerm.value)
+        }
+
+        const response = await api.get(`/api/logs/?${params}`)
         
         if (append) {
           logs.value.push(...response.data)
@@ -276,11 +448,151 @@ export default {
 
     async function applyFilters() {
       selectedLog.value = null
+      selectedLogs.value = []
       await refreshLogs()
     }
 
     async function loadMore() {
       await loadLogs(true)
+    }
+
+    function clearFilters() {
+      selectedScript.value = ''
+      selectedStatus.value = ''
+      dateFrom.value = ''
+      dateTo.value = ''
+      searchTerm.value = ''
+      selectedLog.value = null
+      selectedLogs.value = []
+      refreshLogs()
+    }
+
+    function debounceSearch() {
+      if (searchTimeout.value) {
+        clearTimeout(searchTimeout.value)
+      }
+      searchTimeout.value = setTimeout(() => {
+        applyFilters()
+      }, 500)
+    }
+
+    function toggleLogSelection(logId) {
+      const index = selectedLogs.value.indexOf(logId)
+      if (index > -1) {
+        selectedLogs.value.splice(index, 1)
+      } else {
+        selectedLogs.value.push(logId)
+      }
+    }
+
+    async function bulkDeleteLogs() {
+      if (selectedLogs.value.length === 0) return
+      
+      const confirmMessage = `Are you sure you want to delete ${selectedLogs.value.length} execution logs?`
+      if (!confirm(confirmMessage)) return
+
+      try {
+        await Promise.all(
+          selectedLogs.value.map(logId => api.delete(`/api/logs/${logId}`))
+        )
+        
+        logs.value = logs.value.filter(log => !selectedLogs.value.includes(log.id))
+        selectedLogs.value = []
+        showBulkMenu.value = false
+        
+        await loadGlobalStats()
+        
+        alert('Selected logs deleted successfully')
+      } catch (error) {
+        console.error('Error deleting logs:', error)
+        alert('Failed to delete some logs')
+      }
+    }
+
+    async function exportLogs(format) {
+      showExportMenu.value = false
+      
+      try {
+        const params = new URLSearchParams()
+        if (selectedScript.value) params.append('script_id', selectedScript.value)
+        if (selectedStatus.value) params.append('status', selectedStatus.value)
+        if (dateFrom.value) params.append('date_from', dateFrom.value)
+        if (dateTo.value) params.append('date_to', dateTo.value)
+        if (searchTerm.value) params.append('search', searchTerm.value)
+        
+        // Get all logs for export (no pagination)
+        params.append('limit', '10000')
+        params.append('offset', '0')
+        
+        const response = await api.get(`/api/logs/?${params}`)
+        const exportData = response.data
+        
+        let content
+        let filename
+        let mimeType
+        
+        if (format === 'csv') {
+          content = convertToCSV(exportData)
+          filename = `execution_logs_${new Date().toISOString().split('T')[0]}.csv`
+          mimeType = 'text/csv'
+        } else {
+          content = JSON.stringify(exportData, null, 2)
+          filename = `execution_logs_${new Date().toISOString().split('T')[0]}.json`
+          mimeType = 'application/json'
+        }
+        
+        const blob = new Blob([content], { type: mimeType })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+        
+      } catch (error) {
+        console.error('Error exporting logs:', error)
+        alert('Failed to export logs')
+      }
+    }
+
+    function convertToCSV(data) {
+      if (!data.length) return ''
+      
+      const headers = ['ID', 'Script ID', 'Status', 'Started At', 'Finished At', 'Duration (ms)', 'Exit Code', 'Triggered By']
+      const rows = data.map(log => [
+        log.id,
+        log.script_id,
+        log.status,
+        log.started_at,
+        log.finished_at || '',
+        log.duration_ms || '',
+        log.exit_code !== null ? log.exit_code : '',
+        log.triggered_by || ''
+      ])
+      
+      return [headers, ...rows].map(row => 
+        row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
+      ).join('\n')
+    }
+
+    async function performCleanup() {
+      cleanupLoading.value = true
+      
+      try {
+        const response = await api.post('/api/logs/cleanup', {
+          days: cleanupDays.value
+        })
+        
+        showCleanupDialog.value = false
+        await refreshLogs()
+        
+        alert(response.data.message || 'Cleanup completed successfully')
+      } catch (error) {
+        console.error('Error cleaning up logs:', error)
+        alert('Failed to cleanup logs')
+      } finally {
+        cleanupLoading.value = false
+      }
     }
 
     async function deleteLog(logId) {
@@ -318,9 +630,7 @@ export default {
       return classes[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
     }
 
-    function formatDateTime(dateString) {
-      return new Date(dateString).toLocaleString()
-    }
+    // Using shared datetime utility function
 
     function formatDuration(ms) {
       if (ms < 1000) return `${ms}ms`
@@ -341,13 +651,28 @@ export default {
       selectedLog,
       selectedScript,
       selectedStatus,
+      dateFrom,
+      dateTo,
+      searchTerm,
       loading,
       loadingMore,
       hasFilters,
       limit,
+      selectedLogs,
+      showExportMenu,
+      showBulkMenu,
+      showCleanupDialog,
+      cleanupDays,
+      cleanupLoading,
       refreshLogs,
       applyFilters,
       loadMore,
+      clearFilters,
+      debounceSearch,
+      toggleLogSelection,
+      bulkDeleteLogs,
+      exportLogs,
+      performCleanup,
       deleteLog,
       getScriptName,
       getStatusClass,

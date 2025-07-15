@@ -89,9 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const updateUserSettings = async (settings) => {
     try {
-      const response = await axios.put('/api/auth/me', null, {
-        params: settings
-      })
+      const response = await axios.put('/api/auth/me', settings)
       user.value = response.data
       localStorage.setItem('user', JSON.stringify(user.value))
       return response.data

@@ -1,10 +1,25 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Scripts</h1>
-      <button @click="showCreateDialog = true" class="btn btn-primary">
-        + New Script
-      </button>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Scripts Dashboard</h1>
+        <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">Manage and monitor your Python scripts</p>
+      </div>
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-4 text-sm">
+          <div class="flex items-center space-x-1">
+            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span class="text-gray-600 dark:text-gray-400">{{ enabledScripts }} enabled</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <div class="w-2 h-2 bg-gray-400 rounded-full"></div>
+            <span class="text-gray-600 dark:text-gray-400">{{ disabledScripts }} disabled</span>
+          </div>
+        </div>
+        <button @click="showCreateDialog = true" class="btn btn-primary">
+          + New Script
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center py-8">
@@ -16,45 +31,90 @@
       <p class="text-red-600 dark:text-red-400">{{ error }}</p>
     </div>
 
-    <div v-else class="space-y-4">
+    <div v-else>
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Total Scripts</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ scripts.length }}</p>
+            </div>
+            <div class="text-blue-500 text-2xl">📄</div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Recent Runs</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ recentRuns }}</p>
+            </div>
+            <div class="text-blue-500 text-2xl">📊</div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Success Rate</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ successRate }}%</p>
+            </div>
+            <div class="text-green-500 text-2xl">✅</div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Scheduled</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ scheduledScripts }}</p>
+            </div>
+            <div class="text-orange-500 text-2xl">⏰</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Scripts without folders -->
       <div v-if="scriptsWithoutFolder.length > 0" class="space-y-3">
-        <div v-for="script in scriptsWithoutFolder" :key="script.id" class="card p-4">
+        <div v-for="script in scriptsWithoutFolder" :key="script.id" class="card p-4 hover:shadow-md transition-shadow">
           <div class="flex justify-between items-start">
             <div class="flex-1">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {{ script.name }}
-              </h3>
-              <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                {{ script.description || 'No description' }}
-              </p>
-              <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                <span>Python {{ script.python_version }}</span>
-                <span>{{ script.execution_count }} runs</span>
-                <span v-if="script.last_executed_at">
-                  Last run: {{ formatDate(script.last_executed_at) }}
+              <div class="flex items-center space-x-3 mb-2">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {{ script.name }}
+                </h3>
+                <span :class="getStatusClass(script)">
+                  {{ script.enabled ? 'Enabled' : 'Disabled' }}
+                </span>
+                <span v-if="hasScheduledTriggers(script)" class="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300 px-2 py-1 rounded-full text-xs">
+                  Scheduled
                 </span>
               </div>
-              <div class="mt-2 text-xs text-gray-400">
-                <span class="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                  URL: /api/scripts/{{ script.safe_name }}/trigger?api_key=YOUR_API_KEY
-                </span>
+              <p v-if="script.description" class="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                {{ script.description }}
+              </p>
+              <div class="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+                <div class="flex items-center space-x-1">
+                  <span class="text-orange-500">📅</span>
+                  <span>{{ getScheduleInfo(script) }}</span>
+                </div>
+                <div v-if="getNextRunTime(script)" class="flex items-center space-x-1">
+                  <span class="text-blue-500">⏰</span>
+                  <span>Next: {{ formatDateTimeShort(getNextRunTime(script)) }}</span>
+                </div>
+                <div v-if="script.last_executed_at" class="flex items-center space-x-1">
+                  <span class="text-gray-500">⏱️</span>
+                  <span>Last: {{ formatDateTimeShort(script.last_executed_at) }}</span>
+                </div>
               </div>
             </div>
             <div class="flex items-center space-x-2">
-              <span :class="getStatusClass(script)">
-                {{ script.enabled ? 'Enabled' : 'Disabled' }}
-              </span>
               <button @click="executeScript(script.safe_name)" 
                       :disabled="!script.enabled"
-                      class="btn btn-sm btn-primary">
-                Run
+                      class="btn btn-sm btn-primary"
+                      :class="{ 'opacity-50 cursor-not-allowed': !script.enabled }">
+                ▶️ Run
               </button>
               <button @click="editScript(script.safe_name)" class="btn btn-sm btn-secondary">
-                Edit
-              </button>
-              <button @click="deleteScript(script.safe_name, script.name)" class="btn btn-sm btn-danger">
-                Delete
+                ✏️ Edit
               </button>
             </div>
           </div>
@@ -62,54 +122,65 @@
       </div>
 
       <!-- Folders with scripts -->
-      <div v-for="folder in folders" :key="folder.id" class="card p-4">
+      <div v-for="folder in folders" :key="folder.id" class="card p-4 hover:shadow-md transition-shadow">
         <div class="flex justify-between items-center mb-3">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            📁 {{ folder.name }}
-          </h2>
-          <span class="text-sm text-gray-500 dark:text-gray-400">
-            {{ getScriptsByFolder(folder.id).length }} scripts
-          </span>
+          <div class="flex items-center space-x-3">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              📁 {{ folder.name }}
+            </h2>
+            <span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full text-xs">
+              {{ getScriptsByFolder(folder.id).length }} scripts
+            </span>
+          </div>
+          <button @click="toggleFolder(folder.id)" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <span v-if="expandedFolders.includes(folder.id)">▼</span>
+            <span v-else>▶</span>
+          </button>
         </div>
         
-        <div class="space-y-2">
+        <div v-show="expandedFolders.includes(folder.id)" class="space-y-2">
           <div v-for="script in getScriptsByFolder(folder.id)" :key="script.id" 
-               class="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+               class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <div class="flex justify-between items-start">
               <div class="flex-1">
-                <h3 class="font-medium text-gray-900 dark:text-gray-100">
-                  {{ script.name }}
-                </h3>
-                <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                  {{ script.description || 'No description' }}
-                </p>
-                <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                  <span>Python {{ script.python_version }}</span>
-                  <span>{{ script.execution_count }} runs</span>
-                  <span v-if="script.last_executed_at">
-                    Last run: {{ formatDate(script.last_executed_at) }}
+                <div class="flex items-center space-x-3 mb-2">
+                  <h3 class="font-medium text-gray-900 dark:text-gray-100">
+                    {{ script.name }}
+                  </h3>
+                  <span :class="getStatusClass(script)">
+                    {{ script.enabled ? 'Enabled' : 'Disabled' }}
+                  </span>
+                  <span v-if="hasScheduledTriggers(script)" class="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300 px-2 py-1 rounded-full text-xs">
+                    Scheduled
                   </span>
                 </div>
-                <div class="mt-2 text-xs text-gray-400">
-                  <span class="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                    URL: /api/scripts/{{ script.safe_name }}/trigger?api_key=YOUR_API_KEY
-                  </span>
+                <p v-if="script.description" class="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                  {{ script.description }}
+                </p>
+                <div class="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+                  <div class="flex items-center space-x-1">
+                    <span class="text-orange-500">📅</span>
+                    <span>{{ getScheduleInfo(script) }}</span>
+                  </div>
+                  <div v-if="getNextRunTime(script)" class="flex items-center space-x-1">
+                    <span class="text-blue-500">⏰</span>
+                    <span>Next: {{ formatDateTimeShort(getNextRunTime(script)) }}</span>
+                  </div>
+                  <div v-if="script.last_executed_at" class="flex items-center space-x-1">
+                    <span class="text-gray-500">⏱️</span>
+                    <span>Last: {{ formatDateTimeShort(script.last_executed_at) }}</span>
+                  </div>
                 </div>
               </div>
               <div class="flex items-center space-x-2">
-                <span :class="getStatusClass(script)">
-                  {{ script.enabled ? 'Enabled' : 'Disabled' }}
-                </span>
                 <button @click="executeScript(script.safe_name)" 
                         :disabled="!script.enabled"
-                        class="btn btn-sm btn-primary">
-                  Run
+                        class="btn btn-sm btn-primary"
+                        :class="{ 'opacity-50 cursor-not-allowed': !script.enabled }">
+                  ▶️ Run
                 </button>
                 <button @click="editScript(script.safe_name)" class="btn btn-sm btn-secondary">
-                  Edit
-                </button>
-                <button @click="deleteScript(script.safe_name, script.name)" class="btn btn-sm btn-danger">
-                  Delete
+                  ✏️ Edit
                 </button>
               </div>
             </div>
@@ -212,17 +283,22 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useScriptStore } from '../stores/scripts'
+import { useAuthStore } from '../stores/auth'
+import { useDateTime } from '../composables/datetime'
 
 export default {
   name: 'ScriptList',
   setup() {
     const router = useRouter()
     const scriptStore = useScriptStore()
+    const authStore = useAuthStore()
+    const { formatDateTimeShort, formatDate } = useDateTime()
     
     const showCreateDialog = ref(false)
     const isCreating = ref(false)
     const creationStep = ref(0)
     const createError = ref('')
+    const expandedFolders = ref([])
     const newScript = ref({
       name: '',
       description: '',
@@ -238,19 +314,145 @@ export default {
     
     const scripts = computed(() => scriptStore.scripts)
     const folders = computed(() => scriptStore.folders)
+    const triggers = computed(() => scriptStore.triggers)
     const loading = computed(() => scriptStore.loading)
     const error = computed(() => scriptStore.error)
     
     const scriptsWithoutFolder = computed(() => scriptStore.getScriptsWithoutFolder)
     const getScriptsByFolder = (folderId) => scriptStore.getScriptsByFolder(folderId)
     
+    // Dashboard summary computed values
+    const enabledScripts = computed(() => scripts.value.filter(script => script.enabled).length)
+    const disabledScripts = computed(() => scripts.value.filter(script => !script.enabled).length)
+    const recentRuns = computed(() => {
+      const today = new Date()
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      return scripts.value.filter(script => 
+        script.last_executed_at && new Date(script.last_executed_at) >= yesterday
+      ).length
+    })
+    const successRate = computed(() => {
+      const total = scripts.value.reduce((sum, script) => sum + script.execution_count, 0)
+      const successful = scripts.value.reduce((sum, script) => sum + script.success_count, 0)
+      return total > 0 ? Math.round((successful / total) * 100) : 0
+    })
+    const scheduledScripts = computed(() => {
+      // This would need to be implemented based on triggers data
+      return scripts.value.filter(script => script.enabled && hasScheduledTriggers(script)).length
+    })
+    
     const getStatusClass = (script) => {
       return script.enabled ? 'status-badge status-success' : 'status-badge status-pending'
     }
     
-    const formatDate = (dateString) => {
-      return new Date(dateString).toLocaleDateString()
+    const hasScheduledTriggers = (script) => {
+      const scriptTriggers = scriptStore.getTriggersByScript(script.id)
+      return scriptTriggers.some(trigger => trigger.enabled && trigger.trigger_type !== 'manual')
     }
+    
+    const getScheduleInfo = (script) => {
+      const scriptTriggers = scriptStore.getTriggersByScript(script.id)
+      const enabledTriggers = scriptTriggers.filter(trigger => trigger.enabled)
+      
+      if (enabledTriggers.length === 0) {
+        return 'Manual only'
+      }
+      
+      // Find the first enabled scheduled trigger (not manual)
+      const scheduledTrigger = enabledTriggers.find(trigger => trigger.trigger_type !== 'manual')
+      
+      if (!scheduledTrigger) {
+        return 'Manual only'
+      }
+      
+      return formatScheduleType(scheduledTrigger)
+    }
+    
+    const formatScheduleType = (trigger) => {
+      switch (trigger.trigger_type) {
+        case 'cron':
+          return formatCronExpression(trigger.config.expression)
+        case 'interval':
+          return formatIntervalConfig(trigger.config)
+        case 'startup':
+          return 'On system startup'
+        case 'manual':
+          return 'Manual only'
+        default:
+          return 'Unknown schedule'
+      }
+    }
+    
+    const formatCronExpression = (expression) => {
+      // Convert common CRON expressions to human-readable format
+      const patterns = {
+        '0 * * * *': 'Every hour',
+        '0 */2 * * *': 'Every 2 hours',
+        '0 */3 * * *': 'Every 3 hours',
+        '0 */6 * * *': 'Every 6 hours',
+        '0 */12 * * *': 'Every 12 hours',
+        '0 0 * * *': 'Daily at midnight',
+        '0 9 * * *': 'Daily at 9:00 AM',
+        '0 12 * * *': 'Daily at noon',
+        '0 18 * * *': 'Daily at 6:00 PM',
+        '0 0 * * 0': 'Weekly on Sunday',
+        '0 0 1 * *': 'Monthly on 1st',
+        '*/5 * * * *': 'Every 5 minutes',
+        '*/10 * * * *': 'Every 10 minutes',
+        '*/15 * * * *': 'Every 15 minutes',
+        '*/30 * * * *': 'Every 30 minutes'
+      }
+      
+      return patterns[expression] || `Custom: ${expression}`
+    }
+    
+    const formatIntervalConfig = (config) => {
+      const seconds = config.seconds || 0
+      
+      if (seconds < 60) {
+        return `Every ${seconds} seconds`
+      } else if (seconds < 3600) {
+        const minutes = Math.floor(seconds / 60)
+        return `Every ${minutes} minute${minutes > 1 ? 's' : ''}`
+      } else if (seconds < 86400) {
+        const hours = Math.floor(seconds / 3600)
+        return `Every ${hours} hour${hours > 1 ? 's' : ''}`
+      } else {
+        const days = Math.floor(seconds / 86400)
+        return `Every ${days} day${days > 1 ? 's' : ''}`
+      }
+    }
+    
+    const getNextRunTime = (script) => {
+      const scriptTriggers = scriptStore.getTriggersByScript(script.id)
+      const enabledTriggers = scriptTriggers.filter(trigger => trigger.enabled && trigger.next_run_at)
+      
+      if (enabledTriggers.length === 0) {
+        return null
+      }
+      
+      // Find the trigger with the earliest next run time
+      const earliestTrigger = enabledTriggers.reduce((earliest, trigger) => {
+        if (!earliest || new Date(trigger.next_run_at) < new Date(earliest.next_run_at)) {
+          return trigger
+        }
+        return earliest
+      }, null)
+      
+      return earliestTrigger ? earliestTrigger.next_run_at : null
+    }
+    
+    const toggleFolder = (folderId) => {
+      const index = expandedFolders.value.indexOf(folderId)
+      if (index > -1) {
+        expandedFolders.value.splice(index, 1)
+      } else {
+        expandedFolders.value.push(folderId)
+      }
+    }
+    
+    // Using shared datetime utility functions
     
     const editScript = (safeName) => {
       router.push({ name: 'ScriptEditor', params: { safeName: safeName } })
@@ -337,9 +539,14 @@ export default {
       resetForm()
     }
     
-    onMounted(() => {
-      scriptStore.fetchScripts()
-      scriptStore.fetchFolders()
+    onMounted(async () => {
+      await scriptStore.fetchScripts()
+      await scriptStore.fetchFolders()
+      await scriptStore.fetchTriggers()
+      // Expand all folders by default
+      setTimeout(() => {
+        expandedFolders.value = folders.value.map(folder => folder.id)
+      }, 100)
     })
     
     return {
@@ -354,8 +561,19 @@ export default {
       isCreating,
       creationStep,
       createError,
+      expandedFolders,
+      enabledScripts,
+      disabledScripts,
+      recentRuns,
+      successRate,
+      scheduledScripts,
       getStatusClass,
+      hasScheduledTriggers,
+      getScheduleInfo,
+      getNextRunTime,
+      toggleFolder,
       formatDate,
+      formatDateTimeShort,
       editScript,
       executeScript,
       deleteScript,
