@@ -311,18 +311,16 @@ The script creation process is **minimal and fast** to encourage users to create
 The application uses environment variables for configuration:
 
 ```bash
-# Basic Configuration
+# Core Settings
 PYSCHED_DATA_PATH=/data
-PYSCHED_SECRET_KEY=your-secret-key
-PYSCHED_DEBUG=false
+PYSCHED_SECRET_KEY=your-secret-key-change-me-in-production
 
-# Security Settings
-PYSCHED_DEFAULT_API_KEY=your-default-api-key
-PYSCHED_RATE_LIMIT_ENABLED=true
-PYSCHED_DEFAULT_SCRIPT_TIMEOUT=300
-PYSCHED_DEFAULT_MEMORY_LIMIT=512
+# Admin User Settings (for initial setup)
+PYSCHED_ADMIN_USERNAME=admin
+PYSCHED_ADMIN_PASSWORD=admin
+PYSCHED_ADMIN_EMAIL=admin@localhost
 
-# Email Notifications (Optional)
+# Email Notifications (Optional - used as fallback if database settings not configured)
 SMTP_SERVER=mail.smtp2go.com
 SMTP_PORT=2525
 SMTP_USERNAME=your-username
@@ -334,25 +332,41 @@ FROM_EMAIL=pysched@yourcompany.com
 ```yaml
 services:
   pyscheduler:
-    image: pyscheduler:latest
+    build: .
     ports:
       - "8000:8000"
     environment:
+      # Core Settings
       - PYSCHED_DATA_PATH=/data
-      - PYSCHED_SECRET_KEY=your-secret-key
-      - PYSCHED_DEFAULT_API_KEY=your-api-key
-      - PYSCHED_RATE_LIMIT_ENABLED=true
+      - PYSCHED_SECRET_KEY=your-secret-key-change-me-in-production
+      
+      # Admin User Settings (customize for your deployment)
+      - PYSCHED_ADMIN_USERNAME=admin
+      - PYSCHED_ADMIN_PASSWORD=secure-password-here
+      - PYSCHED_ADMIN_EMAIL=admin@yourdomain.com
+      
+      # Email Settings (Optional - only if not using database configuration)
+      - SMTP_SERVER=mail.smtp2go.com
+      - SMTP_PORT=2525
+      - SMTP_USERNAME=your-username
+      - SMTP_PASSWORD=your-password
+      - FROM_EMAIL=pyscheduler@yourdomain.com
     volumes:
-      - pysched_data:/data
+      - pyscheduler_data:/data
+      - pyscheduler_logs:/var/log
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
 volumes:
-  pysched_data:
+  pyscheduler_data:
+    driver: local
+  pyscheduler_logs:
+    driver: local
 ```
 
 ## Deployment
@@ -549,6 +563,10 @@ Key API endpoints for script management:
 - **Security**: Replaced dangerous `eval()` usage with `json.loads()`
 - **Frontend Build**: Updated and optimized for production
 - **Docker Integration**: Container rebuilt and redeployed successfully
+- **Email Service**: Fixed to prioritize database settings over environment variables
+- **Scheduling System**: Resolved interval calculation bugs causing scripts to run every minute
+- **Docker Compose Cleanup**: Removed unused environment variables, added configurable admin credentials
+- **Admin User Configuration**: Added environment variables for custom admin username/password/email
 
 ### Development Commands (Tested)
 
@@ -630,3 +648,55 @@ Currently focused on **Phase 2: Enhanced logging and monitoring features**
 - Advanced search and filtering capabilities
 - Resource monitoring (CPU, memory usage)
 - Enhanced error reporting and notifications
+
+## Future Feature Additions
+
+### System Logs UI (Planned)
+**Problem**: Currently, system logs (Docker container logs, Celery worker logs, FastAPI logs, supervisor logs) are only accessible via command line, making debugging and monitoring difficult for users.
+
+**Solution**: Add a "System Logs" section to the web interface that displays container and service logs in real-time.
+
+**Implementation Approach (Option 4 - Simple Log Viewer):**
+```python
+# New API endpoint: /api/system/logs/{service}
+@router.get("/api/system/logs/{service}")
+async def get_system_logs(service: str, lines: int = 100, follow: bool = False):
+    """Get recent system logs for specified service"""
+    log_files = {
+        "celery_worker": "/var/log/celery_worker.log",
+        "celery_beat": "/var/log/celery_beat.log", 
+        "fastapi": "/var/log/fastapi.log",
+        "nginx_access": "/var/log/nginx/access.log",
+        "nginx_error": "/var/log/nginx/error.log",
+        "supervisor": "/var/log/supervisor/supervisord.log"
+    }
+    
+    if service not in log_files:
+        raise HTTPException(400, f"Unknown service: {service}")
+    
+    log_file = log_files[service]
+    # Return recent log lines with timestamps
+    # Support real-time streaming if follow=True
+```
+
+**Frontend Implementation:**
+- New "System Logs" tab in the main navigation
+- Service selector dropdown (Celery Worker, Celery Beat, FastAPI, Nginx, Supervisor)
+- Real-time log streaming with WebSocket connection
+- Basic filtering and search capabilities
+- Auto-refresh toggle and manual refresh button
+
+**Benefits:**
+- **Easier Debugging**: View all system logs from web interface
+- **Real-time Monitoring**: See scheduler decisions and task execution in real-time
+- **Troubleshooting**: Quickly identify issues without SSH access
+- **User-Friendly**: No command line knowledge required
+
+**Technical Details:**
+- Read log files directly from `/var/log/` directory
+- Stream recent lines (default 100, configurable)
+- Support for real-time following via WebSocket
+- Simple text display with timestamps
+- Future enhancement: Structured logging to database for advanced filtering
+
+**Priority**: Medium - Useful for debugging and monitoring, but not critical for core functionality

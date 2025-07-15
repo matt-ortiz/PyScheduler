@@ -109,16 +109,9 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
             """, (1 if status == "success" else 0, script_id))
         
         # Send email notification if enabled and trigger conditions are met
-        print(f"[TASK] Checking email notification for script: {script['name']}")
-        print(f"[TASK] Email notifications enabled: {script['email_notifications']}")
-        print(f"[TASK] Email recipients: {script['email_recipients']}")
-        
         if script["email_notifications"] and script["email_recipients"]:
             email_trigger_type = script["email_trigger_type"] if script["email_trigger_type"] else "all"
             should_send_email = False
-            
-            print(f"[TASK] Email trigger type: {email_trigger_type}")
-            print(f"[TASK] Script execution status: {status}")
             
             if email_trigger_type == "all":
                 should_send_email = True
@@ -127,19 +120,13 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
             elif email_trigger_type == "failure" and status == "failed":
                 should_send_email = True
             
-            print(f"[TASK] Should send email: {should_send_email}")
-            
             if should_send_email:
-                print(f"[TASK] Sending email notification...")
-                email_result = send_script_notification(
+                send_script_notification(
                     script["name"],
                     status,
                     result["stdout"] + "\n" + result["stderr"],
                     script["email_recipients"]
                 )
-                print(f"[TASK] Email sending result: {email_result}")
-        else:
-            print(f"[TASK] Email notifications not enabled or no recipients")
         
         # Broadcast execution completion
         asyncio.run(broadcast_event("script_execution_completed", {
@@ -284,7 +271,8 @@ def cleanup_old_logs():
 @celery_app.task
 def process_scheduled_triggers():
     """Process scheduled triggers (cron and interval)"""
-    print(f"[{datetime.now()}] Processing scheduled triggers...")
+    now = datetime.now()
+    # Process scheduled triggers silently
     try:
         with get_db() as conn:
             # Get all enabled triggers
@@ -298,36 +286,54 @@ def process_scheduled_triggers():
             triggers = cursor.fetchall()
             processed = 0
             
-            print(f"Found {len(triggers)} enabled triggers")
+            # Process all enabled triggers
             
             for trigger in triggers:
-                print(f"Processing trigger {trigger['id']} - {trigger['trigger_type']} for script {trigger['script_name']}")
                 trigger_config = json.loads(trigger["config"])
                 should_execute = False
                 
                 if trigger["trigger_type"] == "interval":
                     # Check if enough time has passed for interval trigger
                     if trigger["last_triggered_at"]:
-                        last_run = datetime.fromisoformat(trigger["last_triggered_at"])
-                        interval_seconds = trigger_config.get("seconds", 3600)
+                        # Parse the last triggered time, removing any timezone info to avoid comparison issues
+                        last_run_str = trigger["last_triggered_at"]
+                        if last_run_str.endswith('Z'):
+                            last_run_str = last_run_str[:-1]
+                        if '+' in last_run_str:
+                            last_run_str = last_run_str.split('+')[0]
                         
-                        if (datetime.now() - last_run).total_seconds() >= interval_seconds:
-                            should_execute = True
+                        try:
+                            last_run = datetime.fromisoformat(last_run_str)
+                            interval_seconds = trigger_config.get("seconds", 3600)
+                            time_since_last = (now - last_run).total_seconds()
+                            
+                            if time_since_last >= interval_seconds:
+                                should_execute = True
+                        except Exception:
+                            should_execute = True  # If we can't parse, run it
                     else:
                         should_execute = True
                 
                 elif trigger["trigger_type"] == "cron":
                     # Check if next run time has passed
                     if trigger["next_run_at"]:
-                        next_run = datetime.fromisoformat(trigger["next_run_at"])
-                        if datetime.now() >= next_run:
-                            should_execute = True
+                        try:
+                            next_run_str = trigger["next_run_at"]
+                            if next_run_str.endswith('Z'):
+                                next_run_str = next_run_str[:-1]
+                            if '+' in next_run_str:
+                                next_run_str = next_run_str.split('+')[0]
+                            
+                            next_run = datetime.fromisoformat(next_run_str)
+                            
+                            if now >= next_run:
+                                should_execute = True
+                        except Exception:
+                            should_execute = True  # If we can't parse, run it
                     else:
-                        # If no next run time, execute now and set the next run time
                         should_execute = True
                 
                 if should_execute:
-                    print(f"Executing trigger {trigger['id']} - {trigger['trigger_type']} for script {trigger['script_name']}")
                     # Queue script execution
                     execute_script_task.delay(trigger["script_id"], trigger["id"], "schedule")
                     
@@ -335,25 +341,24 @@ def process_scheduled_triggers():
                     next_run_at = None
                     if trigger["trigger_type"] == "interval":
                         interval_seconds = trigger_config.get("seconds", 3600)
-                        next_run_at = (datetime.now() + timedelta(seconds=interval_seconds)).isoformat()
+                        next_run_at = (now + timedelta(seconds=interval_seconds)).isoformat()
                     elif trigger["trigger_type"] == "cron":
                         # Calculate next run time using croniter
                         cron_expression = trigger_config.get("expression", "0 * * * *")
-                        cron = croniter(cron_expression, datetime.now())
+                        cron = croniter(cron_expression, now)
                         next_run_at = cron.get_next(datetime).isoformat()
                     
+                    # Use consistent datetime format for database
+                    current_time = now.isoformat()
                     conn.execute("""
                         UPDATE triggers SET 
-                            last_triggered_at = CURRENT_TIMESTAMP,
+                            last_triggered_at = ?,
                             next_run_at = ?
                         WHERE id = ?
-                    """, (next_run_at, trigger["id"]))
+                    """, (current_time, next_run_at, trigger["id"]))
                     
                     processed += 1
-                else:
-                    print(f"Trigger {trigger['id']} not ready to execute")
             
-            print(f"Processed {processed} triggers")
             return {"success": True, "processed": processed}
             
     except Exception as e:

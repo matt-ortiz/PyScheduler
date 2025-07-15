@@ -39,14 +39,7 @@ class EmailService:
         # Reload settings each time to ensure we have the latest database configuration
         self._load_settings()
         
-        print(f"[EMAIL] Attempting to send notification for script: {script_name}")
-        print(f"[EMAIL] Status: {status}")
-        print(f"[EMAIL] Recipients: {recipients}")
-        print(f"[EMAIL] Email enabled: {self.enabled}")
-        print(f"[EMAIL] SMTP settings: {self.smtp_server}:{self.smtp_port}")
-        
         if not self.enabled or not recipients:
-            print(f"[EMAIL] Email service not enabled or no recipients. Enabled: {self.enabled}, Recipients: {recipients}")
             return False
         
         subject = f"PyScheduler: {script_name} - {status.title()}"

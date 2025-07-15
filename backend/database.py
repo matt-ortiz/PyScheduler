@@ -160,10 +160,24 @@ def init_database():
         # Create default admin user if none exists
         cursor = conn.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
+            admin_username = os.getenv("PYSCHED_ADMIN_USERNAME", "admin")
+            admin_password = os.getenv("PYSCHED_ADMIN_PASSWORD")
+            admin_email = os.getenv("PYSCHED_ADMIN_EMAIL", "admin@localhost")
+            
+            # Generate secure random password if not provided
+            if not admin_password:
+                import secrets
+                import string
+                # Generate 16-character secure password
+                alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+                admin_password = ''.join(secrets.choice(alphabet) for _ in range(16))
+                print(f"Generated secure admin password: {admin_password}")
+                print("IMPORTANT: Please save this password and change it after first login!")
+            
             conn.execute("""
                 INSERT INTO users (username, email, password_hash, is_admin)
-                VALUES ('admin', 'admin@localhost', ?, true)
-            """, (hash_password("admin"),))
+                VALUES (?, ?, ?, true)
+            """, (admin_username, admin_email, hash_password(admin_password)))
         
         # Create default settings
         settings = [

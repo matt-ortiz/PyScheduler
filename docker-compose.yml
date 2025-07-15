@@ -1,30 +1,24 @@
-version: '3.8'
-
 services:
   pyscheduler:
     build: .
     ports:
       - "8000:8000"
     environment:
+      # Core Settings
       - PYSCHED_DATA_PATH=/data
       - PYSCHED_SECRET_KEY=${PYSCHED_SECRET_KEY:-your-secret-key-change-me-in-production}
-      - PYSCHED_DEBUG=${PYSCHED_DEBUG:-false}
       
-      # Security Settings
-      - PYSCHED_DEFAULT_API_KEY=${PYSCHED_DEFAULT_API_KEY:-your-default-api-key-change-me}
-      - PYSCHED_RATE_LIMIT_ENABLED=${PYSCHED_RATE_LIMIT_ENABLED:-true}
-      - PYSCHED_DEFAULT_SCRIPT_TIMEOUT=${PYSCHED_DEFAULT_SCRIPT_TIMEOUT:-300}
-      - PYSCHED_DEFAULT_MEMORY_LIMIT=${PYSCHED_DEFAULT_MEMORY_LIMIT:-512}
+      # Admin User Settings (set PYSCHED_ADMIN_PASSWORD or secure random will be generated)
+      - PYSCHED_ADMIN_USERNAME=${PYSCHED_ADMIN_USERNAME:-admin}
+      - PYSCHED_ADMIN_PASSWORD=${PYSCHED_ADMIN_PASSWORD:-}
+      - PYSCHED_ADMIN_EMAIL=${PYSCHED_ADMIN_EMAIL:-admin@localhost}
       
-      # Email Settings (Optional)
-      - SMTP_SERVER=${SMTP_SERVER:-mail.smtp2go.com}
+      # Email Settings (Optional - used as fallback if database settings not configured)
+      - SMTP_SERVER=${SMTP_SERVER:-}
       - SMTP_PORT=${SMTP_PORT:-2525}
       - SMTP_USERNAME=${SMTP_USERNAME:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - FROM_EMAIL=${FROM_EMAIL:-pyscheduler@example.com}
-      
-      # Redis Settings
-      - REDIS_URL=redis://localhost:6379/0
+      - FROM_EMAIL=${FROM_EMAIL:-}
       
     volumes:
       - pyscheduler_data:/data
