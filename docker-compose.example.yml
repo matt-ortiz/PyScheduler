@@ -3,7 +3,7 @@
 
 services:
   pyscheduler:
-    image: mattortiz/pyscheduler:latest
+    image: moteez/pyscheduler:latest
     container_name: pyscheduler
     ports:
       - "8000:8000"
