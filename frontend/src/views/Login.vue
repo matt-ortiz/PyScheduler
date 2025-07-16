@@ -3,12 +3,13 @@
     <div class="max-w-md w-full space-y-8">
       <!-- Header Section -->
       <div class="text-center">
-        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
-          <svg class="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a4 4 0 118 0v4m-4 9v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-          </svg>
+        <div class="mx-auto flex items-center justify-center mb-6">
+          <img src="/tempo.png" alt="Tempo" class="h-16 mr-3">
+          <h1 class="text-4xl font-bold text-gray-900 dark:text-white" style="font-family: 'Inter', sans-serif;">
+            Tempo
+          </h1>
         </div>
-        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
           {{ isRegistering ? 'Create Account' : 'Welcome Back' }}
         </h2>
         <p class="text-sm text-gray-600 dark:text-gray-400">

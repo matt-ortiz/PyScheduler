@@ -1,19 +1,27 @@
-# Tempo
+<div align="center">
+  <img src="images/tempo.png" alt="Tempo Logo" width="120">
+  <h1>Tempo</h1>
+  <p><strong>A web-based Python script scheduling and monitoring platform</strong></p>
+  
+  [![Docker Pulls](https://img.shields.io/docker/pulls/moteez/tempo)](https://hub.docker.com/r/moteez/tempo)
+  [![GitHub](https://img.shields.io/github/license/matt-ortiz/Tempo)](https://github.com/matt-ortiz/Tempo/blob/main/LICENSE)
+  [![Version](https://img.shields.io/badge/version-0.1.4-blue)](https://github.com/matt-ortiz/Tempo/releases)
+</div>
 
-A web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
+---
+
+Tempo solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
 
 ![Tempo Dashboard](images/dashboard-screenshot.png)
-
-[![Docker Pulls](https://img.shields.io/docker/pulls/moteez/tempo)](https://hub.docker.com/r/moteez/tempo)
-[![GitHub](https://img.shields.io/github/license/matt-ortiz/Tempo)](https://github.com/matt-ortiz/Tempo/blob/main/LICENSE)
 
 ## 🚀 Quick Start
 
 ```bash
-# Create a docker-compose.yml file
-curl -O https://raw.githubusercontent.com/matt-ortiz/Tempo/main/docker-compose.yml
+# Quick start with Docker
+docker run -p 8000:8000 moteez/tempo:latest
 
-# Start Tempo
+# Or with docker-compose
+curl -O https://raw.githubusercontent.com/matt-ortiz/Tempo/main/docker-compose.yml
 docker-compose up -d
 
 # Access the web interface
@@ -262,6 +270,15 @@ Tempo/
 └── data/               # Runtime data
 ```
 
+## 🎨 Design & Branding
+
+Tempo features a modern, clean interface with:
+- **Custom logo** designed for clarity and professionalism
+- **Inter font** (Google Fonts) for consistent typography
+- **Dark/Light themes** for user preference
+- **Mobile-responsive design** that works on all devices
+- **Real-time updates** without page refreshes
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -272,4 +289,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Made with ❤️ for Python automation**
+<div align="center">
+  <strong>Made with ❤️ for Python automation</strong>
+</div>

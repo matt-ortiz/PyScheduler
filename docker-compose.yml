@@ -1,7 +1,7 @@
 services:
   tempo:
     image: moteez/tempo:latest
-    build: .  # Uncomment for local development
+    # build: .  # Uncomment for local development
     ports:
       - "8000:8000"
     environment:
