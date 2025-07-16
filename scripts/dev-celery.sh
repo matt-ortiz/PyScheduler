@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Start PyScheduler Celery Worker and Beat
-echo "Starting PyScheduler Celery worker and beat..."
+# Start Tempo Celery Worker and Beat
+echo "Starting Tempo Celery worker and beat..."
 
 # Activate virtual environment
 source venv/bin/activate

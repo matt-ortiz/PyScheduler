@@ -23,7 +23,7 @@ COPY VERSION ./VERSION
 
 # Copy configuration files
 COPY docker/nginx.conf /etc/nginx/sites-available/default
-COPY docker/supervisord.conf /etc/supervisor/conf.d/pyscheduler.conf
+COPY docker/supervisord.conf /etc/supervisor/conf.d/tempo.conf
 COPY docker/start.sh /start.sh
 COPY docker/start-simple.sh /start-simple.sh
 COPY docker/redis.conf /etc/redis/redis.conf

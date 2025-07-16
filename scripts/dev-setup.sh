@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# PyScheduler Development Setup Script
-echo "Setting up PyScheduler development environment..."
+# Tempo Development Setup Script
+echo "Setting up Tempo development environment..."
 
 # Check if Python 3.12 is available
 if ! command -v python3.12 &> /dev/null; then
@@ -43,11 +43,11 @@ python -c "from backend.database import init_database; init_database()"
 if [ ! -f .env ]; then
     echo "Creating .env file..."
     cat > .env << EOL
-# PyScheduler Environment Variables
-PYSCHED_DATA_PATH=./data
-PYSCHED_SECRET_KEY=dev-secret-key-change-in-production
-PYSCHED_DEBUG=true
-PYSCHED_DEFAULT_API_KEY=dev-api-key-change-in-production
+# Tempo Environment Variables
+TEMPO_DATA_PATH=./data
+TEMPO_SECRET_KEY=dev-secret-key-change-in-production
+TEMPO_DEBUG=true
+TEMPO_DEFAULT_API_KEY=dev-api-key-change-in-production
 PYSCHED_RATE_LIMIT_ENABLED=false
 
 # Email Settings (Optional)

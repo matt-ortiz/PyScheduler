@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Start all PyScheduler development services
-echo "Starting all PyScheduler development services..."
+# Start all Tempo development services
+echo "Starting all Tempo development services..."
 
 # Check if Redis is running
 if ! pgrep -x "redis-server" > /dev/null; then

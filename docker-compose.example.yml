@@ -1,21 +1,21 @@
-# PyScheduler - Simple Docker Compose Example
+# Tempo - Simple Docker Compose Example
 # Copy this file to docker-compose.yml and customize as needed
 
 services:
-  pyscheduler:
-    image: moteez/pyscheduler:latest
-    container_name: pyscheduler
+  tempo:
+    image: moteez/tempo:latest
+    container_name: tempo
     ports:
       - "8000:8000"
     environment:
       # Core Settings
-      - PYSCHED_DATA_PATH=/data
-      - PYSCHED_SECRET_KEY=your-secret-key-change-me-in-production
+      - TEMPO_DATA_PATH=/data
+      - TEMPO_SECRET_KEY=your-secret-key-change-me-in-production
       
-      # Admin User Settings (set PYSCHED_ADMIN_PASSWORD or secure random will be generated)
-      - PYSCHED_ADMIN_USERNAME=admin
-      - PYSCHED_ADMIN_PASSWORD=
-      - PYSCHED_ADMIN_EMAIL=admin@localhost
+      # Admin User Settings (set TEMPO_ADMIN_PASSWORD or secure random will be generated)
+      - TEMPO_ADMIN_USERNAME=admin
+      - TEMPO_ADMIN_PASSWORD=
+      - TEMPO_ADMIN_EMAIL=admin@localhost
       
       # Email Settings (Optional - used as fallback if database settings not configured)
       - SMTP_SERVER=
@@ -25,8 +25,8 @@ services:
       - FROM_EMAIL=
       
     volumes:
-      - pyscheduler_data:/data
-      - pyscheduler_logs:/var/log
+      - tempo_data:/data
+      - tempo_logs:/var/log
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -36,7 +36,7 @@ services:
       start_period: 40s
 
 volumes:
-  pyscheduler_data:
+  tempo_data:
     driver: local
-  pyscheduler_logs:
+  tempo_logs:
     driver: local

@@ -22,7 +22,7 @@ class EmailService:
             self.smtp_port = int(email_settings.get('smtp_port') or os.getenv("SMTP_PORT", "2525"))
             self.smtp_username = email_settings.get('smtp_username') or os.getenv("SMTP_USERNAME")
             self.smtp_password = email_settings.get('smtp_password') or os.getenv("SMTP_PASSWORD")
-            self.from_email = email_settings.get('from_email') or os.getenv("FROM_EMAIL", "pyscheduler@example.com")
+            self.from_email = email_settings.get('from_email') or os.getenv("FROM_EMAIL", "tempo@example.com")
             
         except Exception:
             # Fall back to environment variables if database load fails
@@ -30,7 +30,7 @@ class EmailService:
             self.smtp_port = int(os.getenv("SMTP_PORT", "2525"))
             self.smtp_username = os.getenv("SMTP_USERNAME")
             self.smtp_password = os.getenv("SMTP_PASSWORD")
-            self.from_email = os.getenv("FROM_EMAIL", "pyscheduler@example.com")
+            self.from_email = os.getenv("FROM_EMAIL", "tempo@example.com")
         
         self.enabled = bool(self.smtp_server and self.smtp_username and self.smtp_password)
     
@@ -42,7 +42,7 @@ class EmailService:
         if not self.enabled or not recipients:
             return False
         
-        subject = f"PyScheduler: {script_name} - {status.title()}"
+        subject = f"Tempo: {script_name} - {status.title()}"
         
         # Create email body
         body = f"""
@@ -54,7 +54,7 @@ Output:
 {output[:2000]}{'...' if len(output) > 2000 else ''}
 
 ---
-PyScheduler Notification
+Tempo Notification
         """
         
         # Send to each recipient

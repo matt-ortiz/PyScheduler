@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Generator
 import hashlib
 
-DATABASE_PATH = Path(os.getenv("PYSCHED_DATA_PATH", "./data")) / "pyscheduler.db"
+DATABASE_PATH = Path(os.getenv("TEMPO_DATA_PATH", "./data")) / "tempo.db"
 
 @contextmanager
 def get_db() -> Generator[sqlite3.Connection, None, None]:
@@ -160,9 +160,9 @@ def init_database():
         # Create default admin user if none exists
         cursor = conn.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
-            admin_username = os.getenv("PYSCHED_ADMIN_USERNAME", "admin")
-            admin_password = os.getenv("PYSCHED_ADMIN_PASSWORD")
-            admin_email = os.getenv("PYSCHED_ADMIN_EMAIL", "admin@localhost")
+            admin_username = os.getenv("TEMPO_ADMIN_USERNAME", "admin")
+            admin_password = os.getenv("TEMPO_ADMIN_PASSWORD")
+            admin_email = os.getenv("TEMPO_ADMIN_EMAIL", "admin@localhost")
             
             # Generate secure random password if not provided
             if not admin_password:

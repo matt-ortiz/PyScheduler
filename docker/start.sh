@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting PyScheduler..."
+echo "Starting Tempo..."
 
 # Create necessary directories
 mkdir -p /data/scripts /data/logs /data/backups
@@ -30,4 +30,4 @@ ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
 nginx -t
 
 echo "Starting services with supervisor..."
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/pyscheduler.conf
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/tempo.conf

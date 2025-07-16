@@ -12,7 +12,7 @@
           {{ isRegistering ? 'Create Account' : 'Welcome Back' }}
         </h2>
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          {{ isRegistering ? 'Join PyScheduler today' : 'Sign in to your PyScheduler account' }}
+          {{ isRegistering ? 'Join Tempo today' : 'Sign in to your Tempo account' }}
         </p>
       </div>
 

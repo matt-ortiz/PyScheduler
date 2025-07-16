@@ -1,8 +1,8 @@
-# PyScheduler - Python Script Scheduler & Monitor
+# Tempo - Python Script Scheduler & Monitor
 
 ## Project Vision
 
-**PyScheduler** is a web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
+**Tempo** is a web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
 
 ## The Problem We're Solving
 
@@ -346,7 +346,7 @@ volumes:
 
 ## Conclusion
 
-PyScheduler addresses a real need for individual developers and small teams who want to schedule Python scripts without the complexity of enterprise workflow systems. By focusing on simplicity, reliability, and ease of use, we can create a tool that solves the specific problem of Python script scheduling while providing modern conveniences like real-time monitoring and proper dependency management.
+Tempo addresses a real need for individual developers and small teams who want to schedule Python scripts without the complexity of enterprise workflow systems. By focusing on simplicity, reliability, and ease of use, we can create a tool that solves the specific problem of Python script scheduling while providing modern conveniences like real-time monitoring and proper dependency management.
 
 The key to success is maintaining focus on the core value proposition: **making it easy to schedule and monitor Python scripts securely and reliably**. Every feature should directly support this goal without adding unnecessary complexity.
 
@@ -355,4 +355,4 @@ The key to success is maintaining focus on the core value proposition: **making 
 **Document Version**: 1.1  
 **Created**: 2025-01-11  
 **Updated**: 2025-01-14  
-**Purpose**: Enhanced project requirements for PyScheduler with security and resource management improvements
+**Purpose**: Enhanced project requirements for Tempo with security and resource management improvements

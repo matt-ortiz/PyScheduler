@@ -1,19 +1,19 @@
-# PyScheduler
+# Tempo
 
 A web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
 
-![PyScheduler Dashboard](images/dashboard-screenshot.png)
+![Tempo Dashboard](images/dashboard-screenshot.png)
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/moteez/pyscheduler)](https://hub.docker.com/r/moteez/pyscheduler)
-[![GitHub](https://img.shields.io/github/license/matt-ortiz/PyScheduler)](https://github.com/matt-ortiz/PyScheduler/blob/main/LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/moteez/tempo)](https://hub.docker.com/r/moteez/tempo)
+[![GitHub](https://img.shields.io/github/license/matt-ortiz/Tempo)](https://github.com/matt-ortiz/Tempo/blob/main/LICENSE)
 
 ## 🚀 Quick Start
 
 ```bash
 # Create a docker-compose.yml file
-curl -O https://raw.githubusercontent.com/matt-ortiz/PyScheduler/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/matt-ortiz/Tempo/main/docker-compose.yml
 
-# Start PyScheduler
+# Start Tempo
 docker-compose up -d
 
 # Access the web interface
@@ -27,7 +27,7 @@ open http://localhost:8000
 
 ```bash
 # View the generated admin password
-docker-compose logs pyscheduler | grep "Generated secure admin password"
+docker-compose logs tempo | grep "Generated secure admin password"
 ```
 
 ## ✨ Key Features
@@ -57,13 +57,13 @@ docker-compose logs pyscheduler | grep "Generated secure admin password"
 
 ```yaml
 services:
-  pyscheduler:
-    image: moteez/pyscheduler:latest
+  tempo:
+    image: moteez/tempo:latest
     ports:
       - "8000:8000"
     volumes:
-      - pyscheduler_data:/data
-      - pyscheduler_logs:/var/log
+      - tempo_data:/data
+      - tempo_logs:/var/log
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -73,37 +73,37 @@ services:
       start_period: 40s
 
 volumes:
-  pyscheduler_data:
-  pyscheduler_logs:
+  tempo_data:
+  tempo_logs:
 ```
 
 ### Advanced Configuration
 
 ```yaml
 services:
-  pyscheduler:
-    image: moteez/pyscheduler:latest
+  tempo:
+    image: moteez/tempo:latest
     ports:
       - "8000:8000"
     environment:
       # Core Settings
-      - PYSCHED_DATA_PATH=/data
-      - PYSCHED_SECRET_KEY=your-secret-key-change-me-in-production
+      - TEMPO_DATA_PATH=/data
+      - TEMPO_SECRET_KEY=your-secret-key-change-me-in-production
       
       # Admin User Settings (customize for your deployment)
-      - PYSCHED_ADMIN_USERNAME=admin
-      - PYSCHED_ADMIN_PASSWORD=your-secure-password-here
-      - PYSCHED_ADMIN_EMAIL=admin@yourdomain.com
+      - TEMPO_ADMIN_USERNAME=admin
+      - TEMPO_ADMIN_PASSWORD=your-secure-password-here
+      - TEMPO_ADMIN_EMAIL=admin@yourdomain.com
       
       # Email Settings (Optional - only if not using database configuration)
       - SMTP_SERVER=mail.smtp2go.com
       - SMTP_PORT=2525
       - SMTP_USERNAME=your-username
       - SMTP_PASSWORD=your-password
-      - FROM_EMAIL=pyscheduler@yourdomain.com
+      - FROM_EMAIL=tempo@yourdomain.com
     volumes:
-      - pyscheduler_data:/data
-      - pyscheduler_logs:/var/log
+      - tempo_data:/data
+      - tempo_logs:/var/log
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -113,8 +113,8 @@ services:
       start_period: 40s
 
 volumes:
-  pyscheduler_data:
-  pyscheduler_logs:
+  tempo_data:
+  tempo_logs:
 ```
 
 ## ⚙️ Configuration
@@ -123,11 +123,11 @@ volumes:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PYSCHED_DATA_PATH` | `/data` | Data directory path |
-| `PYSCHED_SECRET_KEY` | `your-secret-key-change-me-in-production` | JWT secret key |
-| `PYSCHED_ADMIN_USERNAME` | `admin` | Initial admin username |
-| `PYSCHED_ADMIN_PASSWORD` | *random generated* | Initial admin password |
-| `PYSCHED_ADMIN_EMAIL` | `admin@localhost` | Initial admin email |
+| `TEMPO_DATA_PATH` | `/data` | Data directory path |
+| `TEMPO_SECRET_KEY` | `your-secret-key-change-me-in-production` | JWT secret key |
+| `TEMPO_ADMIN_USERNAME` | `admin` | Initial admin username |
+| `TEMPO_ADMIN_PASSWORD` | *random generated* | Initial admin password |
+| `TEMPO_ADMIN_EMAIL` | `admin@localhost` | Initial admin email |
 | `SMTP_SERVER` | - | SMTP server hostname |
 | `SMTP_PORT` | `2525` | SMTP server port |
 | `SMTP_USERNAME` | - | SMTP username |
@@ -143,7 +143,7 @@ volumes:
 
 ## 🔧 API Access
 
-PyScheduler provides a REST API for automation:
+Tempo provides a REST API for automation:
 
 ```bash
 # Execute a script via URL trigger
@@ -186,10 +186,10 @@ curl "http://localhost:8000/api/logs/1" \
 
 ```bash
 # Backup your data
-docker cp pyscheduler_pyscheduler_1:/data ./backup-$(date +%Y%m%d)
+docker cp tempo_tempo_1:/data ./backup-$(date +%Y%m%d)
 
 # Restore from backup
-docker cp ./backup-20240101 pyscheduler_pyscheduler_1:/data
+docker cp ./backup-20240101 tempo_tempo_1:/data
 ```
 
 ## 🐛 Troubleshooting
@@ -199,7 +199,7 @@ docker cp ./backup-20240101 pyscheduler_pyscheduler_1:/data
 **Container won't start:**
 ```bash
 # Check logs
-docker-compose logs pyscheduler
+docker-compose logs tempo
 
 # Verify health
 curl http://localhost:8000/api/health
@@ -208,7 +208,7 @@ curl http://localhost:8000/api/health
 **Can't find admin password:**
 ```bash
 # Look for generated password in logs
-docker-compose logs pyscheduler | grep "Generated secure admin password"
+docker-compose logs tempo | grep "Generated secure admin password"
 ```
 
 **Scripts fail to execute:**
@@ -228,8 +228,8 @@ docker-compose logs pyscheduler | grep "Generated secure admin password"
 
 ```bash
 # Clone repository
-git clone https://github.com/matt-ortiz/PyScheduler.git
-cd PyScheduler
+git clone https://github.com/matt-ortiz/Tempo.git
+cd Tempo
 
 # Install dependencies
 pip install -r requirements.txt
@@ -242,7 +242,7 @@ cd frontend && npm install && cd ..
 ### Project Structure
 
 ```
-PyScheduler/
+Tempo/
 ├── backend/              # Python FastAPI backend
 │   ├── api/             # API endpoints
 │   ├── models.py        # Pydantic models

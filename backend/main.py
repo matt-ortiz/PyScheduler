@@ -26,7 +26,7 @@ from .websocket_manager import WebSocketManager
 init_database()
 
 app = FastAPI(
-    title="PyScheduler",
+    title="Tempo",
     description="Python Script Scheduler & Monitor",
     version=APP_VERSION,
     redirect_slashes=False
@@ -51,7 +51,7 @@ async def get_version_endpoint():
     """Get application version"""
     return {
         "version": APP_VERSION,
-        "name": "PyScheduler",
+        "name": "Tempo",
         "description": "Python Script Scheduler & Monitor"
     }
 
@@ -60,7 +60,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "PyScheduler",
+        "service": "Tempo",
         "version": APP_VERSION
     }
 

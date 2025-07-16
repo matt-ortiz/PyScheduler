@@ -12,13 +12,13 @@ app.use(router)
 app.mount('#app')
 
 // Add version to console for debugging
-console.log('🚀 PyScheduler Frontend')
+console.log('🚀 Tempo Frontend')
 console.log('📦 Build Date:', new Date().toISOString())
 console.log('🔧 Check /api/version for backend version')
 
 // Add version to window for easy access
-window.PyScheduler = {
+window.Tempo = {
   buildDate: new Date().toISOString(),
-  name: 'PyScheduler',
-  repository: 'https://github.com/matt-ortiz/PyScheduler'
+  name: 'Tempo',
+  repository: 'https://github.com/matt-ortiz/Tempo'
 }

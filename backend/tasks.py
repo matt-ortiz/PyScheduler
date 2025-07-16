@@ -14,7 +14,7 @@ from .timezone_utils import format_datetime_for_api
 
 # Celery configuration
 celery_app = Celery(
-    'pyscheduler',
+    'tempo',
     broker='redis://localhost:6379/0',
     backend='redis://localhost:6379/0'
 )

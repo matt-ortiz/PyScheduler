@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting PyScheduler (Simple Mode)..."
+echo "Starting Tempo (Simple Mode)..."
 
 # Create necessary directories
 mkdir -p /data/scripts /data/logs /data/backups

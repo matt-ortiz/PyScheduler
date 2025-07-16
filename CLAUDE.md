@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PyScheduler** is a web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
+**Tempo** is a web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
 
 ### Key Features
 - **Simple Script Creation** - Quick dialog asking only for script name and optional folder
@@ -209,8 +209,8 @@ npm run test:e2e
 ## File Structure
 
 ```
-/data/pyscheduler/
-├── pyscheduler.db              # SQLite database
+/data/tempo/
+├── tempo.db              # SQLite database
 ├── scripts/                    # Script storage (organized by safe names)
 │   ├── hello-world/            # Script: "Hello World" 
 │   │   ├── hello-world.py      # Script content
@@ -238,7 +238,7 @@ npm run test:e2e
 │   ├── daily/
 │   └── weekly/
 ├── logs/                       # Application logs
-│   ├── pyscheduler.log
+│   ├── tempo.log
 │   └── celery.log
 └── config/                     # Configuration files
     └── settings.json
@@ -312,48 +312,48 @@ The application uses environment variables for configuration:
 
 ```bash
 # Core Settings
-PYSCHED_DATA_PATH=/data
-PYSCHED_SECRET_KEY=your-secret-key-change-me-in-production
+TEMPO_DATA_PATH=/data
+TEMPO_SECRET_KEY=your-secret-key-change-me-in-production
 
 # Admin User Settings (for initial setup)
-PYSCHED_ADMIN_USERNAME=admin
-PYSCHED_ADMIN_PASSWORD=admin
-PYSCHED_ADMIN_EMAIL=admin@localhost
+TEMPO_ADMIN_USERNAME=admin
+TEMPO_ADMIN_PASSWORD=admin
+TEMPO_ADMIN_EMAIL=admin@localhost
 
 # Email Notifications (Optional - used as fallback if database settings not configured)
 SMTP_SERVER=mail.smtp2go.com
 SMTP_PORT=2525
 SMTP_USERNAME=your-username
 SMTP_PASSWORD=your-password
-FROM_EMAIL=pysched@yourcompany.com
+FROM_EMAIL=tempo@yourcompany.com
 ```
 
 ### Docker Deployment
 ```yaml
 services:
-  pyscheduler:
+  tempo:
     build: .
     ports:
       - "8000:8000"
     environment:
       # Core Settings
-      - PYSCHED_DATA_PATH=/data
-      - PYSCHED_SECRET_KEY=your-secret-key-change-me-in-production
+      - TEMPO_DATA_PATH=/data
+      - TEMPO_SECRET_KEY=your-secret-key-change-me-in-production
       
       # Admin User Settings (customize for your deployment)
-      - PYSCHED_ADMIN_USERNAME=admin
-      - PYSCHED_ADMIN_PASSWORD=secure-password-here
-      - PYSCHED_ADMIN_EMAIL=admin@yourdomain.com
+      - TEMPO_ADMIN_USERNAME=admin
+      - TEMPO_ADMIN_PASSWORD=secure-password-here
+      - TEMPO_ADMIN_EMAIL=admin@yourdomain.com
       
       # Email Settings (Optional - only if not using database configuration)
       - SMTP_SERVER=mail.smtp2go.com
       - SMTP_PORT=2525
       - SMTP_USERNAME=your-username
       - SMTP_PASSWORD=your-password
-      - FROM_EMAIL=pyscheduler@yourdomain.com
+      - FROM_EMAIL=tempo@yourdomain.com
     volumes:
-      - pyscheduler_data:/data
-      - pyscheduler_logs:/var/log
+      - tempo_data:/data
+      - tempo_logs:/var/log
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -363,9 +363,9 @@ services:
       start_period: 40s
 
 volumes:
-  pyscheduler_data:
+  tempo_data:
     driver: local
-  pyscheduler_logs:
+  tempo_logs:
     driver: local
 ```
 
@@ -529,7 +529,7 @@ Key API endpoints for script management:
 ## Current Project Status
 
 ### Project Location
-- **Working Directory**: `/Users/matt/PycharmProjects/PyScheduler`
+- **Working Directory**: `/Users/matt/PycharmProjects/Tempo`
 - **Git Repository**: Not initialized (local development only)
 - **Environment**: macOS (Darwin 24.5.0)
 
@@ -614,7 +614,7 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Key Files & Directories
 ```
-/Users/matt/PycharmProjects/PyScheduler/
+/Users/matt/PycharmProjects/Tempo/
 ├── backend/                 # Python FastAPI backend
 ├── frontend/               # Vue.js 3 frontend
 ├── docker/                 # Docker configuration files

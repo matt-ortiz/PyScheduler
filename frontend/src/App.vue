@@ -5,7 +5,7 @@
         <div class="flex justify-between h-16">
           <div class="flex items-center">
             <router-link to="/" class="text-xl font-bold text-primary-600 dark:text-primary-400">
-              PyScheduler
+              Tempo
             </router-link>
           </div>
           

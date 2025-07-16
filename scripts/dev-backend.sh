@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Start PyScheduler Backend Development Server
-echo "Starting PyScheduler backend development server..."
+# Start Tempo Backend Development Server
+echo "Starting Tempo backend development server..."
 
 # Activate virtual environment
 source venv/bin/activate

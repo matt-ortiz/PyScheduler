@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Start PyScheduler Frontend Development Server
-echo "Starting PyScheduler frontend development server..."
+# Start Tempo Frontend Development Server
+echo "Starting Tempo frontend development server..."
 
 # Change to frontend directory
 cd frontend

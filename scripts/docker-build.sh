@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Build and run PyScheduler with Docker
-echo "Building and running PyScheduler with Docker..."
+# Build and run Tempo with Docker
+echo "Building and running Tempo with Docker..."
 
 # Build frontend first
 echo "Building frontend..."
@@ -9,13 +9,13 @@ echo "Building frontend..."
 
 # Build Docker image
 echo "Building Docker image..."
-docker build -t pyscheduler:latest .
+docker build -t tempo:latest .
 
 # Check if image was built successfully
 if [ $? -eq 0 ]; then
     echo "Docker image built successfully!"
     echo "To run with Docker Compose: docker-compose up -d"
-    echo "To run directly: docker run -p 8000:8000 -v pyscheduler_data:/data pyscheduler:latest"
+    echo "To run directly: docker run -p 8000:8000 -v tempo_data:/data tempo:latest"
 else
     echo "Docker image build failed!"
     exit 1

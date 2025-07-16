@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Build PyScheduler Frontend for Production
-echo "Building PyScheduler frontend for production..."
+# Build Tempo Frontend for Production
+echo "Building Tempo frontend for production..."
 
 # Change to frontend directory
 cd frontend

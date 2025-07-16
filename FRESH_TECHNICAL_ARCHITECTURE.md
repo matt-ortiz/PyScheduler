@@ -1,8 +1,8 @@
-# PyScheduler - Technical Architecture
+# Tempo - Technical Architecture
 
 ## Overview
 
-This document defines the technical architecture for **PyScheduler**, a web-based Python script scheduling and monitoring platform. The architecture prioritizes simplicity, reliability, and ease of deployment while providing all necessary functionality for script management and execution.
+This document defines the technical architecture for **Tempo**, a web-based Python script scheduling and monitoring platform. The architecture prioritizes simplicity, reliability, and ease of deployment while providing all necessary functionality for script management and execution.
 
 ## Design Principles
 
@@ -26,7 +26,7 @@ This document defines the technical architecture for **PyScheduler**, a web-base
 ### High-Level Architecture
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Browser   │    │   PyScheduler   │    │   File System   │
+│   Web Browser   │    │   Tempo   │    │   File System   │
 │                 │    │   Container     │    │                 │
 │  - Vue.js App   │◄──►│                 │◄──►│  - SQLite DB    │
 │  - WebSocket    │    │  - FastAPI      │    │  - Scripts      │
@@ -178,7 +178,7 @@ from websocket_manager import WebSocketManager
 from database import init_database
 
 app = FastAPI(
-    title="PyScheduler",
+    title="Tempo",
     description="Python Script Scheduler & Monitor",
     version="1.0.0"
 )
@@ -997,7 +997,7 @@ class EmailService:
         if not self.smtp_server or not self.smtp_username or not recipients:
             return
         
-        subject = f"PyScheduler: {script_name} - {status.title()}"
+        subject = f"Tempo: {script_name} - {status.title()}"
         
         # Create email body
         body = f"""
@@ -1009,7 +1009,7 @@ Output:
 {output}
 
 ---
-PyScheduler Notification
+Tempo Notification
         """
         
         # Send to each recipient
@@ -1353,7 +1353,7 @@ autorestart=true
 
 ## Conclusion
 
-This architecture provides a robust foundation for PyScheduler while maintaining simplicity and ease of deployment. The key strengths are:
+This architecture provides a robust foundation for Tempo while maintaining simplicity and ease of deployment. The key strengths are:
 
 ### Technical Benefits
 - **Single Container Deployment** - Easy to install and manage
@@ -1369,7 +1369,7 @@ The architecture is designed to be **simple enough for individual developers** w
 **Document Version**: 1.1  
 **Created**: 2025-01-11  
 **Updated**: 2025-01-14  
-**Purpose**: Enhanced technical architecture for PyScheduler with security and resource management improvements external dependencies
+**Purpose**: Enhanced technical architecture for Tempo with security and resource management improvements external dependencies
 - **Real-time Updates** - WebSocket for live monitoring
 - **Isolated Execution** - Virtual environments prevent conflicts
 - **Comprehensive Logging** - Full execution history and debugging
@@ -1386,4 +1386,4 @@ The architecture is designed to be **simple enough for individual developers** w
 
 **Document Version**: 1.0  
 **Created**: 2025-01-11  
-**Purpose**: Complete technical architecture for PyScheduler
+**Purpose**: Complete technical architecture for Tempo
