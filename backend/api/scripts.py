@@ -10,6 +10,30 @@ from ..utils import generate_safe_name, ensure_unique_safe_name, get_folder_path
 from ..virtual_env import VirtualEnvironmentManager
 from ..timezone_utils import format_datetime_for_api
 
+def load_script_content_from_file(script_dict: dict) -> dict:
+    """Load script content from file (source of truth) and update database if needed"""
+    try:
+        folder_path = get_folder_path(script_dict.get("folder_id"))
+        manager = VirtualEnvironmentManager(script_dict["safe_name"], folder_path)
+        
+        # If script file exists, use it as source of truth
+        if manager.script_file.exists():
+            file_content = manager.script_file.read_text()
+            
+            # If file content differs from database, update database
+            if file_content != script_dict.get("content", ""):
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE scripts SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                        (file_content, script_dict["id"])
+                    )
+                script_dict["content"] = file_content
+        
+        return script_dict
+    except Exception as e:
+        print(f"Error loading script content from file: {e}")
+        return script_dict
+
 router = APIRouter()
 
 @router.get("/", response_model=List[ScriptResponse])
@@ -27,6 +51,9 @@ async def list_scripts(current_user: dict = Depends(get_current_user)):
         for row in cursor.fetchall():
             script_dict = dict(row)
             script_dict.pop('folder_name', None)  # Remove join field
+            
+            # Load content from file (source of truth)
+            script_dict = load_script_content_from_file(script_dict)
             
             # Format datetime fields for API response
             datetime_fields = ['created_at', 'updated_at', 'last_executed_at']
@@ -75,23 +102,37 @@ async def create_script(
         
         script_id = cursor.lastrowid
         
-        # Create virtual environment asynchronously
-        folder_path = get_folder_path(script.folder_id)
-        manager = VirtualEnvironmentManager(safe_name, folder_path)
-        
-        # Create environment asynchronously
+        # Create script file immediately (source of truth)
         try:
-            result = await manager.create_environment(script.python_version)
-            if result["success"] and script.requirements:
-                await manager.install_requirements(script.requirements)
+            folder_path = get_folder_path(script.folder_id)
+            manager = VirtualEnvironmentManager(safe_name, folder_path)
+            
+            # Create directory and script file first
+            manager.script_path.mkdir(parents=True, exist_ok=True)
+            manager.script_file.write_text(script.content)
+            
+            # Create virtual environment in background (don't wait for it)
+            # This prevents the UI from hanging
+            async def create_venv_background():
+                try:
+                    await manager.create_environment(script.python_version)
+                    if script.requirements:
+                        await manager.install_requirements(script.requirements)
+                except Exception as e:
+                    print(f"Background venv creation failed: {e}")
+            
+            import asyncio
+            asyncio.create_task(create_venv_background())
+            
         except Exception as e:
-            print(f"Error creating virtual environment: {e}")
-            # Could raise an exception here, but for now just log the error
+            print(f"Error creating script file: {e}")
+            raise HTTPException(500, f"Failed to create script file: {str(e)}")
         
-        # Return created script
+        # Return created script with file content
         cursor = conn.execute("SELECT * FROM scripts WHERE id = ?", (script_id,))
         created_script = cursor.fetchone()
-        return ScriptResponse(**dict(created_script))
+        script_dict = load_script_content_from_file(dict(created_script))
+        return ScriptResponse(**script_dict)
 
 @router.get("/{safe_name}", response_model=ScriptResponse)
 async def get_script(
@@ -106,7 +147,10 @@ async def get_script(
         if not script:
             raise HTTPException(404, "Script not found")
         
-        return ScriptResponse(**dict(script))
+        # Load content from file (source of truth)
+        script_dict = load_script_content_from_file(dict(script))
+        
+        return ScriptResponse(**script_dict)
 
 @router.put("/{safe_name}", response_model=ScriptResponse)
 async def update_script(
@@ -185,16 +229,20 @@ async def update_script(
             params.append(existing_script["id"])
             conn.execute(query, params)
         
-        # Update virtual environment if requirements changed
-        if script.requirements is not None:
-            folder_path = get_folder_path(existing_script["folder_id"])
-            manager = VirtualEnvironmentManager(existing_script["safe_name"], folder_path)
+        # Update script file and virtual environment if needed
+        folder_path = get_folder_path(existing_script["folder_id"])
+        manager = VirtualEnvironmentManager(existing_script["safe_name"], folder_path)
+        
+        try:
+            # Update script file if content changed
+            if script.content is not None:
+                manager.script_file.write_text(script.content)
             
-            try:
-                if script.requirements:
-                    await manager.install_requirements(script.requirements)
-            except Exception as e:
-                print(f"Error updating virtual environment: {e}")
+            # Update virtual environment if requirements changed
+            if script.requirements is not None and script.requirements:
+                await manager.install_requirements(script.requirements)
+        except Exception as e:
+            print(f"Error updating script file or virtual environment: {e}")
         
         # Return updated script
         cursor = conn.execute("SELECT * FROM scripts WHERE id = ?", (existing_script["id"],))
@@ -209,6 +257,14 @@ async def auto_save_script(
 ):
     """Auto-save script content (for real-time saving)"""
     with get_db() as conn:
+        # Get script info first
+        cursor = conn.execute("SELECT * FROM scripts WHERE safe_name = ? AND auto_save = true", (safe_name,))
+        script = cursor.fetchone()
+        
+        if not script:
+            raise HTTPException(404, "Script not found or auto-save disabled")
+        
+        # Update database
         cursor = conn.execute("""
             UPDATE scripts SET 
                 content = ?,
@@ -216,8 +272,13 @@ async def auto_save_script(
             WHERE safe_name = ? AND auto_save = true
         """, (auto_save_data.content, safe_name))
         
-        if cursor.rowcount == 0:
-            raise HTTPException(404, "Script not found or auto-save disabled")
+        # Update script file
+        try:
+            folder_path = get_folder_path(script["folder_id"])
+            manager = VirtualEnvironmentManager(safe_name, folder_path)
+            manager.script_file.write_text(auto_save_data.content)
+        except Exception as e:
+            print(f"Error updating script file during auto-save: {e}")
         
         return {"success": True, "saved_at": format_datetime_for_api(datetime.now())}
 
@@ -236,16 +297,43 @@ async def execute_script(
         if not script:
             raise HTTPException(404, "Script not found or disabled")
         
-        # Queue script execution through Celery
+        # Queue script execution through Celery and wait for result
         from ..tasks import execute_script_task
         task = execute_script_task.delay(script["id"], None, "manual")
         
-        return {
-            "success": True,
-            "task_id": task.id,
-            "script": script["name"],
-            "message": f"Script '{script['name']}' queued for execution"
-        }
+        # Wait for task completion (with timeout)
+        try:
+            result = task.get(timeout=60)  # Wait up to 60 seconds
+            
+            if "error" in result:
+                return {
+                    "success": False,
+                    "error": result["error"],
+                    "exit_code": -1,
+                    "duration_ms": 0,
+                    "stdout": "",
+                    "stderr": result["error"]
+                }
+            
+            # Return the task result directly (now includes stdout/stderr)
+            return {
+                "success": result["status"] == "success",
+                "status": result["status"],
+                "exit_code": result["exit_code"],
+                "duration_ms": result["duration_ms"],
+                "stdout": result.get("stdout", ""),
+                "stderr": result.get("stderr", "")
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Execution timeout or error: {str(e)}",
+                "exit_code": -1,
+                "duration_ms": 0,
+                "stdout": "",
+                "stderr": str(e)
+            }
 
 @router.get("/{safe_name}/trigger")
 async def trigger_script_via_url(

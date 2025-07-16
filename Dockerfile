@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY backend/ ./backend/
 COPY frontend/dist/ ./frontend/
+COPY VERSION ./VERSION
 
 # Copy configuration files
 COPY docker/nginx.conf /etc/nginx/sites-available/default

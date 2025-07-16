@@ -140,7 +140,9 @@ def execute_script_task(self, script_id: int, trigger_id: int = None, triggered_
             "success": True,
             "status": status,
             "exit_code": result["exit_code"],
-            "duration_ms": result["duration_ms"]
+            "duration_ms": result["duration_ms"],
+            "stdout": result["stdout"],
+            "stderr": result["stderr"]
         }
         
     except Exception as exc:

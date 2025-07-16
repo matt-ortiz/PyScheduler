@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
+import { api } from '@/composables/api'
 
 export const useAuthStore = defineStore('auth', () => {
   // State
-  const token = ref(localStorage.getItem('auth_token') || null)
+  const token = ref(localStorage.getItem('token') || localStorage.getItem('auth_token') || null)
   const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
   const isLoading = ref(false)
   const error = ref(null)
@@ -19,17 +19,15 @@ export const useAuthStore = defineStore('auth', () => {
       isLoading.value = true
       error.value = null
       
-      const response = await axios.post('/api/auth/login', credentials)
+      const response = await api.post('/api/auth/login', credentials)
       
       token.value = response.data.access_token
       user.value = response.data.user
       
-      // Store in localStorage
-      localStorage.setItem('auth_token', token.value)
+      // Store in localStorage (using 'token' for consistency)
+      localStorage.setItem('token', token.value)
+      localStorage.setItem('auth_token', token.value) // Keep both for compatibility
       localStorage.setItem('user', JSON.stringify(user.value))
-      
-      // Set default axios header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
       
       return response.data
     } catch (err) {
@@ -45,7 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
       isLoading.value = true
       error.value = null
       
-      const response = await axios.post('/api/auth/register', userData)
+      const response = await api.post('/api/auth/register', userData)
       
       // Auto-login after registration
       await login({
@@ -67,16 +65,14 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     
     // Remove from localStorage
+    localStorage.removeItem('token')
     localStorage.removeItem('auth_token')
     localStorage.removeItem('user')
-    
-    // Remove axios header
-    delete axios.defaults.headers.common['Authorization']
   }
 
   const fetchUserInfo = async () => {
     try {
-      const response = await axios.get('/api/auth/me')
+      const response = await api.get('/api/auth/me')
       user.value = response.data
       localStorage.setItem('user', JSON.stringify(user.value))
       return response.data
@@ -89,7 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const updateUserSettings = async (settings) => {
     try {
-      const response = await axios.put('/api/auth/me', settings)
+      const response = await api.put('/api/auth/me', settings)
       user.value = response.data
       localStorage.setItem('user', JSON.stringify(user.value))
       return response.data
@@ -100,10 +96,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const initializeAuth = () => {
-    // Set axios header if token exists
-    if (token.value) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
-    }
+    // Auth is handled by the API interceptor
+    // No need to set axios headers manually
   }
 
   const clearError = () => {

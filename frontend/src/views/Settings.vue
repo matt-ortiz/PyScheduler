@@ -11,7 +11,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="label">Application Version</label>
-            <div class="text-sm text-gray-600 dark:text-gray-400">1.0.0</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">{{ version }}</div>
           </div>
           <div>
             <label class="label">Total Scripts</label>
@@ -195,6 +195,7 @@ export default {
     
     const theme = ref('dark')
     const userTimezone = ref('UTC')
+    const version = ref('Loading...')
     const timezones = ref([
       { value: 'UTC', label: 'UTC' },
       { value: 'US/Eastern', label: 'Eastern Time' },
@@ -387,6 +388,15 @@ export default {
           userTimezone.value = 'UTC'
         }
         
+        // Load version information
+        try {
+          const versionResponse = await axios.get('/api/version')
+          version.value = versionResponse.data.version
+        } catch (error) {
+          console.error('Error loading version:', error)
+          version.value = 'Error loading version'
+        }
+        
         // Load timezones and start time updates
         await loadTimezones()
         updateCurrentTime()
@@ -420,6 +430,7 @@ export default {
       userTimezone,
       timezones,
       currentTime,
+      version,
       settings,
       emailSettings,
       scripts,

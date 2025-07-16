@@ -2,6 +2,8 @@
 
 A web-based Python script scheduling and monitoring platform that solves the common problem of running Python scripts on a schedule while providing proper dependency isolation, real-time monitoring, and comprehensive logging.
 
+![PyScheduler Dashboard](images/dashboard-screenshot.png)
+
 [![Docker Pulls](https://img.shields.io/docker/pulls/moteez/pyscheduler)](https://hub.docker.com/r/moteez/pyscheduler)
 [![GitHub](https://img.shields.io/github/license/matt-ortiz/PyScheduler)](https://github.com/matt-ortiz/PyScheduler/blob/main/LICENSE)
 

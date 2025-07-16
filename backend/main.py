@@ -6,6 +6,18 @@ import uvicorn
 import os
 from pathlib import Path
 
+# Get version from VERSION file
+def get_version():
+    try:
+        version_file = Path(__file__).parent.parent / "VERSION"
+        if version_file.exists():
+            return version_file.read_text().strip()
+        return "unknown"
+    except:
+        return "unknown"
+
+APP_VERSION = get_version()
+
 from .database import init_database
 from .api import auth, scripts, folders, logs, execution, settings
 from .websocket_manager import WebSocketManager
@@ -16,7 +28,7 @@ init_database()
 app = FastAPI(
     title="PyScheduler",
     description="Python Script Scheduler & Monitor",
-    version="1.0.0",
+    version=APP_VERSION,
     redirect_slashes=False
 )
 
@@ -32,10 +44,25 @@ app.add_middleware(
 # WebSocket manager for real-time updates
 ws_manager = WebSocketManager()
 
-# Health check endpoint
+
+# Version and health endpoints
+@app.get("/api/version")
+async def get_version_endpoint():
+    """Get application version"""
+    return {
+        "version": APP_VERSION,
+        "name": "PyScheduler",
+        "description": "Python Script Scheduler & Monitor"
+    }
+
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "PyScheduler"}
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "PyScheduler",
+        "version": APP_VERSION
+    }
 
 # API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
@@ -56,7 +83,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
 
-# Serve frontend static files (if they exist)
+# Serve frontend static files (if they exist) - MUST be last
 frontend_dist = Path(__file__).parent.parent / "frontend"
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="static")
