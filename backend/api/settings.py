@@ -26,7 +26,7 @@ class AppSettings(BaseModel):
     api_key: str = "default-api-key-change-me"
 
 # Settings file path
-SETTINGS_FILE = Path(os.getenv("PYSCHED_DATA_PATH", "/data")) / "settings.json"
+SETTINGS_FILE = Path(os.getenv("TEMPO_DATA_PATH", "/data")) / "settings.json"
 
 def load_settings() -> Dict[str, Any]:
     """Load settings from file"""
@@ -52,7 +52,7 @@ def load_settings() -> Dict[str, Any]:
             "smtp_port": 2525,
             "smtp_username": "",
             "smtp_password": "",
-            "from_email": "pyscheduler@example.com"
+            "from_email": "tempo@example.com"
         }
     }
 

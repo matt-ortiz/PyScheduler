@@ -9,7 +9,11 @@ import shutil
 class VirtualEnvironmentManager:
     def __init__(self, safe_name: str, folder_path: str = ""):
         self.safe_name = safe_name
-        self.data_path = Path(os.getenv("PYSCHED_DATA_PATH", "./data"))
+        data_path_str = os.getenv("TEMPO_DATA_PATH", "/data")
+        # Ensure we use absolute path
+        if not data_path_str.startswith('/'):
+            data_path_str = os.path.abspath(data_path_str)
+        self.data_path = Path(data_path_str)
         
         # Build script path using safe name and folder structure
         if folder_path:
